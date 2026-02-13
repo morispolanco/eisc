@@ -179,8 +179,8 @@ export default function Dashboard() {
                             {/* Current position */}
                             <div
                                 className={`h-full rounded-full transition-all duration-1000 ${balances.available >= 0
-                                        ? 'bg-gradient-to-r from-brand-600 to-brand-400'
-                                        : 'bg-gradient-to-r from-red-600 to-red-400'
+                                    ? 'bg-gradient-to-r from-brand-600 to-brand-400'
+                                    : 'bg-gradient-to-r from-red-600 to-red-400'
                                     }`}
                                 style={{ width: `${creditUsagePercent}%` }}
                             />
@@ -218,7 +218,7 @@ export default function Dashboard() {
                     </div>
                     <div className="space-y-2">
                         {Object.entries(milestones).map(([key, m]) => (
-                            <MilestoneItem key={key} label={m.label} credits={m.credits} completed={m.completed} />
+                            <MilestoneItem key={key} label={m.label.length > 30 ? m.label.split('—')[0].trim() : m.label} credits={m.credits} completed={m.completed} />
                         ))}
                     </div>
                     <div className="mt-4 pt-4 border-t border-surface-800">
@@ -228,6 +228,13 @@ export default function Dashboard() {
                                 +{Object.values(milestones).filter(m => m.completed).reduce((sum, m) => sum + m.credits, 0)} créditos
                             </span>
                         </div>
+                        {Object.values(milestones).some(m => !m.completed) && (
+                            <a href="/onboarding" className="mt-3 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-brand-500/10 text-brand-400 text-sm font-medium hover:bg-brand-500/20 border border-brand-500/20 transition-all">
+                                <Award className="w-4 h-4" />
+                                Completar hitos pendientes
+                                <ChevronRight className="w-3 h-3" />
+                            </a>
+                        )}
                     </div>
                 </div>
             </div>

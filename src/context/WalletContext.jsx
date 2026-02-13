@@ -75,14 +75,14 @@ const DEMO_TRANSACTIONS = [
 
 const DEMO_MILESTONES = {
     registration: { completed: true, credits: 1, label: 'Registro completado' },
-    portfolio: { completed: true, credits: 2, label: 'Portafolio subido' },
-    identity: { completed: true, credits: 2, label: 'Identidad verificada' },
+    portfolio: { completed: true, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
+    identity: { completed: true, credits: 2, label: 'Hito de Verificación — Videollamada o recomendación' },
 };
 
 const NEW_USER_MILESTONES = {
     registration: { completed: false, credits: 1, label: 'Registro completado' },
-    portfolio: { completed: false, credits: 2, label: 'Portafolio subido' },
-    identity: { completed: false, credits: 2, label: 'Identidad verificada' },
+    portfolio: { completed: false, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
+    identity: { completed: false, credits: 2, label: 'Hito de Verificación — Videollamada o recomendación' },
 };
 
 export function WalletProvider({ children }) {
@@ -119,8 +119,8 @@ export function WalletProvider({ children }) {
             setTransactions([regTx]);
             setMilestones({
                 registration: { completed: true, credits: 1, label: 'Registro completado' },
-                portfolio: { completed: false, credits: 2, label: 'Portafolio subido' },
-                identity: { completed: false, credits: 2, label: 'Identidad verificada' },
+                portfolio: { completed: false, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
+                identity: { completed: false, credits: 2, label: 'Hito de Verificación — Videollamada o recomendación' },
             });
         }
     }, [user]);

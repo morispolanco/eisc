@@ -8,6 +8,7 @@ import WalletPage from './pages/WalletPage';
 import Marketplace from './pages/Marketplace';
 import PublishService from './pages/PublishService';
 import Disputes from './pages/Disputes';
+import Onboarding from './pages/Onboarding';
 import AuthPage from './pages/AuthPage';
 import { Coins } from 'lucide-react';
 
@@ -44,6 +45,7 @@ function AppContent() {
             <Route path="/wallet" element={<WalletPage />} />
             <Route path="/publish" element={<PublishService />} />
             <Route path="/disputes" element={<Disputes />} />
+            <Route path="/onboarding" element={<Onboarding />} />
           </Routes>
         </Layout>
       </MarketplaceProvider>

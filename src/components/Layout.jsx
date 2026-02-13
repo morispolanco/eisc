@@ -8,6 +8,7 @@ import {
     Wallet,
     PlusCircle,
     AlertTriangle,
+    Award,
     LogOut,
     Menu,
     X,
@@ -18,6 +19,7 @@ import {
 
 const NAV_ITEMS = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/onboarding', label: 'Hitos', icon: Award },
     { path: '/marketplace', label: 'Marketplace', icon: Store },
     { path: '/wallet', label: 'Wallet', icon: Wallet },
     { path: '/publish', label: 'Publicar Servicio', icon: PlusCircle },
