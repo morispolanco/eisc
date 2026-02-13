@@ -154,6 +154,15 @@ export function WalletProvider({ children }) {
             inEscrowUSD: inEscrow * CREDIT_VALUE_USD,
             creditLine: MIN_CREDIT_LINE,
             canSpend: available - MIN_CREDIT_LINE, // How much they can actually spend
+            // Credit line details
+            isUsingCreditLine: available < 0,
+            debtAmount: available < 0 ? Math.abs(available) : 0,
+            debtAmountUSD: available < 0 ? Math.abs(available) * CREDIT_VALUE_USD : 0,
+            creditLineUsed: available < 0 ? Math.abs(available) : 0,
+            creditLineRemaining: available < 0 ? Math.abs(MIN_CREDIT_LINE) - Math.abs(available) : Math.abs(MIN_CREDIT_LINE),
+            creditLineUtilization: available < 0 ? (Math.abs(available) / Math.abs(MIN_CREDIT_LINE)) * 100 : 0,
+            maxCreditLine: Math.abs(MIN_CREDIT_LINE),
+            maxCreditLineUSD: Math.abs(MIN_CREDIT_LINE) * CREDIT_VALUE_USD,
         };
     }, [transactions]);
 

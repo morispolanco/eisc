@@ -152,29 +152,134 @@ export default function WalletPage() {
                 </div>
             </div>
 
-            {/* Credit Line Indicator */}
-            <div className="glass-card p-4">
-                <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-surface-400">Línea de Crédito Disponible</span>
-                    <span className="text-sm text-surface-500">
-                        Puedes gastar: <span className="text-white font-semibold">{balances.available - MIN_CREDIT_LINE} cr.</span> ({`~$${(balances.available - MIN_CREDIT_LINE) * CREDIT_VALUE_USD} USD`})
-                    </span>
+            {/* Préstamo de Confianza — Línea de Crédito Negativa */}
+            <div className="glass-card overflow-hidden">
+                <div className="p-5 border-b border-surface-800/50">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500/20 to-amber-500/20 text-brand-400 flex items-center justify-center">
+                                <Coins className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-semibold text-white">Préstamo de Confianza — Línea de Crédito</h3>
+                                <p className="text-xs text-surface-500 mt-0.5">Sobregiro de hasta {balances.maxCreditLine} créditos (~${balances.maxCreditLineUSD} USD)</p>
+                            </div>
+                        </div>
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${balances.isUsingCreditLine
+                                ? balances.creditLineUtilization > 80
+                                    ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                : 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
+                            }`}>
+                            {balances.isUsingCreditLine ? `Deuda: ${balances.debtAmount} cr.` : 'Sin deuda'}
+                        </span>
+                    </div>
                 </div>
-                <div className="h-2 bg-surface-800 rounded-full overflow-hidden">
-                    <div
-                        className={`h-full rounded-full transition-all duration-700 ${balances.available >= 0
-                                ? 'bg-gradient-to-r from-brand-600 to-brand-400'
-                                : 'bg-gradient-to-r from-red-600 to-amber-500'
-                            }`}
-                        style={{
-                            width: `${Math.min(100, Math.max(5, ((balances.available - MIN_CREDIT_LINE) / (balances.totalEarned - MIN_CREDIT_LINE)) * 100))}%`
-                        }}
-                    />
-                </div>
-                <div className="flex justify-between mt-1.5 text-xs text-surface-600">
-                    <span>{MIN_CREDIT_LINE} cr. (límite)</span>
-                    <span>{balances.available} cr. (actual)</span>
-                    <span>{balances.totalEarned} cr. (máximo)</span>
+
+                <div className="p-5 space-y-4">
+                    {/* Gauge */}
+                    <div>
+                        <div className="flex items-center justify-between text-xs mb-2">
+                            <span className="text-surface-500">Capacidad de gasto total</span>
+                            <span className="text-white font-semibold">
+                                {balances.canSpend} cr. (~${balances.canSpend * CREDIT_VALUE_USD} USD)
+                            </span>
+                        </div>
+                        <div className="h-3 bg-surface-800 rounded-full overflow-hidden relative">
+                            {/* Negative zone */}
+                            <div
+                                className="absolute left-0 top-0 h-full bg-red-500/10 border-r-2 border-red-500/30"
+                                style={{ width: `${(Math.abs(MIN_CREDIT_LINE) / (Math.max(balances.totalEarned, 1) - MIN_CREDIT_LINE)) * 100}%` }}
+                            />
+                            <div
+                                className={`h-full rounded-full transition-all duration-700 ${balances.available >= 0
+                                    ? 'bg-gradient-to-r from-brand-600 to-brand-400'
+                                    : 'bg-gradient-to-r from-red-600 to-amber-500'
+                                    }`}
+                                style={{
+                                    width: `${Math.min(100, Math.max(5, ((balances.available - MIN_CREDIT_LINE) / (Math.max(balances.totalEarned, 1) - MIN_CREDIT_LINE)) * 100))}%`
+                                }}
+                            />
+                        </div>
+                        <div className="flex justify-between mt-1.5 text-[10px] text-surface-600">
+                            <span>{MIN_CREDIT_LINE} cr. (límite)</span>
+                            <span className="text-surface-500 font-medium">0 cr.</span>
+                            <span>{balances.totalEarned > 0 ? `+${balances.totalEarned}` : '+'} cr.</span>
+                        </div>
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="p-3 rounded-xl bg-surface-800/30 text-center">
+                            <p className="text-[10px] text-surface-500 uppercase tracking-wider">Línea total</p>
+                            <p className="text-lg font-bold text-white mt-1">{balances.maxCreditLine}</p>
+                            <p className="text-[10px] text-surface-600">~${balances.maxCreditLineUSD} USD</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-surface-800/30 text-center">
+                            <p className="text-[10px] text-surface-500 uppercase tracking-wider">Utilizada</p>
+                            <p className={`text-lg font-bold mt-1 ${balances.creditLineUsed > 0 ? 'text-amber-400' : 'text-surface-600'}`}>{balances.creditLineUsed}</p>
+                            <p className="text-[10px] text-surface-600">~${balances.creditLineUsed * CREDIT_VALUE_USD} USD</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-surface-800/30 text-center">
+                            <p className="text-[10px] text-surface-500 uppercase tracking-wider">Disponible</p>
+                            <p className="text-lg font-bold text-brand-400 mt-1">{balances.creditLineRemaining}</p>
+                            <p className="text-[10px] text-surface-600">~${balances.creditLineRemaining * CREDIT_VALUE_USD} USD</p>
+                        </div>
+                    </div>
+
+                    {/* Utilization bar (when using credit) */}
+                    {balances.isUsingCreditLine && (
+                        <div className="animate-slide-up">
+                            <div className="flex items-center justify-between text-xs mb-1.5">
+                                <span className="text-surface-500">Uso de línea de crédito</span>
+                                <span className={`font-semibold ${balances.creditLineUtilization > 80 ? 'text-red-400' :
+                                        balances.creditLineUtilization > 50 ? 'text-amber-400' : 'text-brand-400'
+                                    }`}>{Math.round(balances.creditLineUtilization)}%</span>
+                            </div>
+                            <div className="h-2 bg-surface-800 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-700 ${balances.creditLineUtilization > 80 ? 'bg-gradient-to-r from-red-600 to-red-400' :
+                                            balances.creditLineUtilization > 50 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
+                                                'bg-gradient-to-r from-brand-600 to-brand-400'
+                                        }`}
+                                    style={{ width: `${balances.creditLineUtilization}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Status message */}
+                    {balances.isUsingCreditLine ? (
+                        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/5 border border-red-500/10">
+                            <div className="w-8 h-8 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center shrink-0 mt-0.5">
+                                <TrendingDown className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-red-300">Obligación de trabajo pendiente</p>
+                                <p className="text-xs text-red-400/70 mt-1 leading-relaxed">
+                                    Tu saldo es <span className="text-red-300 font-semibold">{balances.available} créditos (~${Math.abs(balances.availableUSD)} USD)</span>.
+                                    Cada crédito usado a sobregiro representa una <span className="text-red-300 font-medium">promesa de trabajo futuro</span>.
+                                    Acepta y completa servicios en el Marketplace para restaurar tu balance a cero.
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-start gap-3 p-4 rounded-xl bg-brand-500/5 border border-brand-500/10">
+                            <div className="w-8 h-8 rounded-full bg-brand-500/10 text-brand-400 flex items-center justify-center shrink-0 mt-0.5">
+                                <Lock className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-brand-300">¿Cómo funciona el préstamo de confianza?</p>
+                                <ul className="text-xs text-surface-500 mt-1.5 space-y-1 leading-relaxed">
+                                    <li>→ Puedes contratar servicios incluso con saldo en <span className="text-white font-medium">0 créditos</span>.</li>
+                                    <li>→ Tu saldo puede bajar hasta <span className="text-white font-medium">{MIN_CREDIT_LINE} créditos (~${Math.abs(MIN_CREDIT_LINE) * CREDIT_VALUE_USD} USD)</span>.</li>
+                                    <li>→ Si usas el sobregiro, queda registrada una <span className="text-white font-medium">obligación de trabajo futuro</span>.</li>
+                                    <li>→ Presta servicios a otros miembros para volver a saldo cero o positivo.</li>
+                                    <li>→ Cada crédito está respaldado por <span className="text-white font-medium">trabajo real</span>, no por dinero.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -197,8 +302,8 @@ export default function WalletPage() {
                                 key={f.value}
                                 onClick={() => setTypeFilter(f.value)}
                                 className={`px-3 py-2.5 text-xs font-medium transition-all ${typeFilter === f.value
-                                        ? 'bg-brand-500/20 text-brand-400'
-                                        : 'bg-surface-800/50 text-surface-400 hover:text-white'
+                                    ? 'bg-brand-500/20 text-brand-400'
+                                    : 'bg-surface-800/50 text-surface-400 hover:text-white'
                                     }`}
                             >
                                 {f.label}
@@ -211,8 +316,8 @@ export default function WalletPage() {
                                 key={f.value}
                                 onClick={() => setStatusFilter(f.value)}
                                 className={`px-3 py-2.5 text-xs font-medium transition-all ${statusFilter === f.value
-                                        ? 'bg-brand-500/20 text-brand-400'
-                                        : 'bg-surface-800/50 text-surface-400 hover:text-white'
+                                    ? 'bg-brand-500/20 text-brand-400'
+                                    : 'bg-surface-800/50 text-surface-400 hover:text-white'
                                     }`}
                             >
                                 {f.label}

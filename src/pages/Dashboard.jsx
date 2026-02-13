@@ -153,28 +153,33 @@ export default function Dashboard() {
 
             {/* Credit Line + Milestones Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Credit Line Card */}
+                {/* Credit Line Card — Préstamo de Confianza */}
                 <div className="glass-card p-6 animate-slide-up" style={{ animationDelay: '150ms' }}>
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-base font-semibold text-white flex items-center gap-2">
                             <Zap className="w-4 h-4 text-brand-400" />
-                            Línea de Crédito
+                            Préstamo de Confianza
                         </h3>
-                        <span className="text-xs text-surface-500">Límite: {MIN_CREDIT_LINE} créditos</span>
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${balances.isUsingCreditLine
+                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                : 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
+                            }`}>
+                            {balances.isUsingCreditLine ? `Deuda: ${balances.debtAmount} cr.` : 'Sin deuda'}
+                        </span>
                     </div>
 
                     {/* Visual credit gauge */}
                     <div className="relative mb-4">
                         <div className="flex justify-between text-xs text-surface-600 mb-2">
                             <span>{MIN_CREDIT_LINE} cr.</span>
-                            <span>0 cr.</span>
-                            <span>{balances.totalEarned} cr.</span>
+                            <span className="text-surface-500 font-medium">0 cr.</span>
+                            <span>{balances.totalEarned > 0 ? `+${balances.totalEarned}` : '+'} cr.</span>
                         </div>
                         <div className="h-3 bg-surface-800 rounded-full overflow-hidden relative">
-                            {/* Negative zone */}
+                            {/* Negative zone marker */}
                             <div
-                                className="absolute left-0 top-0 h-full bg-red-500/20 border-r border-red-500/40"
-                                style={{ width: `${(Math.abs(MIN_CREDIT_LINE) / (balances.totalEarned - MIN_CREDIT_LINE)) * 100}%` }}
+                                className="absolute left-0 top-0 h-full bg-red-500/10 border-r-2 border-red-500/30"
+                                style={{ width: `${(Math.abs(MIN_CREDIT_LINE) / (Math.max(balances.totalEarned, 1) - MIN_CREDIT_LINE)) * 100}%` }}
                             />
                             {/* Current position */}
                             <div
@@ -185,22 +190,66 @@ export default function Dashboard() {
                                 style={{ width: `${creditUsagePercent}%` }}
                             />
                         </div>
-                        <div className="flex justify-between mt-2">
-                            <p className="text-xs text-surface-500">
-                                Puedes gastar hasta <span className="text-white font-medium">{balances.available - MIN_CREDIT_LINE} créditos</span>
-                            </p>
-                            <p className="text-xs text-surface-500">
-                                ~${(balances.available - MIN_CREDIT_LINE) * CREDIT_VALUE_USD} USD
-                            </p>
+                    </div>
+
+                    {/* Two-column stats */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="p-3 rounded-xl bg-surface-800/30">
+                            <p className="text-[10px] text-surface-500 uppercase tracking-wider">Puedes gastar</p>
+                            <p className="text-lg font-bold text-white mt-0.5">{balances.canSpend} <span className="text-xs font-normal text-surface-500">cr.</span></p>
+                            <p className="text-[10px] text-surface-600">~${balances.canSpend * CREDIT_VALUE_USD} USD</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-surface-800/30">
+                            <p className="text-[10px] text-surface-500 uppercase tracking-wider">Línea disponible</p>
+                            <p className="text-lg font-bold text-white mt-0.5">{balances.creditLineRemaining} <span className="text-xs font-normal text-surface-500">de {balances.maxCreditLine}</span></p>
+                            <p className="text-[10px] text-surface-600">~${balances.creditLineRemaining * CREDIT_VALUE_USD} USD</p>
                         </div>
                     </div>
 
-                    {balances.available < 0 && (
-                        <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/10">
-                            <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                            <p className="text-xs text-red-300">
-                                Tu saldo es negativo. Completa trabajos para restablecer tu balance.
-                            </p>
+                    {/* Debt status */}
+                    {balances.isUsingCreditLine ? (
+                        <div className="space-y-3">
+                            {/* Debt obligation */}
+                            <div className="flex items-start gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/10">
+                                <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
+                                <div>
+                                    <p className="text-sm font-medium text-red-300">Obligación pendiente</p>
+                                    <p className="text-xs text-red-400/70 mt-0.5 leading-relaxed">
+                                        Debes <span className="text-red-300 font-semibold">{balances.debtAmount} créditos (~${balances.debtAmountUSD} USD)</span> al ecosistema.
+                                        Presta servicios en el Marketplace para volver a saldo cero.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Utilization bar */}
+                            <div>
+                                <div className="flex items-center justify-between text-xs mb-1.5">
+                                    <span className="text-surface-500">Uso de línea de crédito</span>
+                                    <span className={`font-semibold ${balances.creditLineUtilization > 80 ? 'text-red-400' :
+                                            balances.creditLineUtilization > 50 ? 'text-amber-400' : 'text-surface-400'
+                                        }`}>{Math.round(balances.creditLineUtilization)}%</span>
+                                </div>
+                                <div className="h-2 bg-surface-800 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-700 ${balances.creditLineUtilization > 80 ? 'bg-gradient-to-r from-red-600 to-red-400' :
+                                                balances.creditLineUtilization > 50 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
+                                                    'bg-gradient-to-r from-brand-600 to-brand-400'
+                                            }`}
+                                        style={{ width: `${balances.creditLineUtilization}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-start gap-3 p-3 rounded-xl bg-brand-500/5 border border-brand-500/10">
+                            <ShieldCheck className="w-5 h-5 text-brand-400 mt-0.5 shrink-0" />
+                            <div>
+                                <p className="text-sm font-medium text-brand-300">Línea de crédito activa</p>
+                                <p className="text-xs text-surface-500 mt-0.5 leading-relaxed">
+                                    Tienes un sobregiro de hasta <span className="text-white font-medium">{balances.maxCreditLine} créditos (~${balances.maxCreditLineUSD} USD)</span>.
+                                    Contrata servicios incluso con saldo en 0 — tu promesa de trabajo futuro es tu garantía.
+                                </p>
+                            </div>
                         </div>
                     )}
                 </div>

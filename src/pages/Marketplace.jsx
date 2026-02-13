@@ -15,8 +15,12 @@ const CATEGORY_ICONS = {
 function ServiceDetailModal({ service, onClose, onBuy, affordable }) {
     const [buying, setBuying] = useState(false);
     const [result, setResult] = useState(null);
-    const { CREDIT_VALUE_USD } = useWallet();
+    const { CREDIT_VALUE_USD, balances } = useWallet();
     const Icon = CATEGORY_ICONS[service.category] || Tag;
+
+    // Will this purchase push the user into negative balance?
+    const willGoNegative = balances.available - service.price < 0;
+    const resultingBalance = balances.available - service.price;
 
     const handleBuy = async () => {
         setBuying(true);
@@ -52,18 +56,34 @@ function ServiceDetailModal({ service, onClose, onBuy, affordable }) {
                     <div className="p-3 rounded-xl bg-surface-800/50"><p className="text-xs text-surface-500">Precio</p><p className="text-lg font-bold text-brand-400">{service.price} cr.</p><p className="text-xs text-surface-600">~${service.price * CREDIT_VALUE_USD} USD</p></div>
                     <div className="p-3 rounded-xl bg-surface-800/50"><p className="text-xs text-surface-500">Entrega</p><p className="text-lg font-bold text-white">{service.deliveryDays} días</p><p className="text-xs text-surface-600">{service.provider.completedJobs} trabajos</p></div>
                 </div>
-                <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 mb-4">
+
+                {/* Escrow notice */}
+                <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 mb-3">
                     <p className="text-xs text-amber-300 flex items-start gap-2"><Coins className="w-4 h-4 shrink-0 mt-0.5" />Los créditos se retendrán en escrow hasta que confirmes la recepción satisfactoria.</p>
                 </div>
+
+                {/* Credit line warning — when user would go negative */}
+                {affordable && willGoNegative && !result && (
+                    <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/10 mb-3 animate-slide-up">
+                        <p className="text-xs text-red-300 flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <span>
+                                <span className="font-semibold">Préstamo de confianza:</span> Tu saldo quedará en <span className="font-bold">{resultingBalance} créditos (~${Math.abs(resultingBalance) * CREDIT_VALUE_USD} USD)</span>.
+                                Al aceptar, te comprometes a prestar servicios para restaurar tu balance.
+                            </span>
+                        </p>
+                    </div>
+                )}
+
                 {result ? (
                     <div className={`p-4 rounded-xl ${result.success ? 'bg-brand-500/10 border border-brand-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
                         <div className="flex items-center gap-2">
-                            {result.success ? (<><CheckCircle2 className="w-5 h-5 text-brand-400" /><div><p className="text-sm font-medium text-brand-400">¡Servicio contratado!</p><p className="text-xs text-surface-400 mt-0.5">Los créditos han sido movidos al escrow.</p></div></>) : (<><AlertCircle className="w-5 h-5 text-red-400" /><div><p className="text-sm font-medium text-red-400">Error</p><p className="text-xs text-surface-400 mt-0.5">{result.error}</p></div></>)}
+                            {result.success ? (<><CheckCircle2 className="w-5 h-5 text-brand-400" /><div><p className="text-sm font-medium text-brand-400">¡Servicio contratado!</p><p className="text-xs text-surface-400 mt-0.5">{willGoNegative ? `Créditos en escrow. Tu saldo es ahora ${resultingBalance} cr. — completa trabajos para recuperarte.` : 'Los créditos han sido movidos al escrow.'}</p></div></>) : (<><AlertCircle className="w-5 h-5 text-red-400" /><div><p className="text-sm font-medium text-red-400">Error</p><p className="text-xs text-surface-400 mt-0.5">{result.error}</p></div></>)}
                         </div>
                     </div>
                 ) : (
                     <button onClick={handleBuy} disabled={buying || !affordable} className={`w-full ${affordable ? 'btn-primary' : 'btn-secondary opacity-50 cursor-not-allowed'} flex items-center justify-center gap-2`}>
-                        {buying ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Procesando...</>) : (<><ShoppingCart className="w-4 h-4" />{affordable ? `Contratar por ${service.price} créditos` : 'Fondos insuficientes'}</>)}
+                        {buying ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Procesando...</>) : (<><ShoppingCart className="w-4 h-4" />{affordable ? (willGoNegative ? `Contratar con préstamo (${service.price} cr.)` : `Contratar por ${service.price} créditos`) : 'Límite de crédito alcanzado'}</>)}
                     </button>
                 )}
             </div>
