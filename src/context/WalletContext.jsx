@@ -93,9 +93,28 @@ export function WalletProvider({ children }) {
             setMilestones(DEMO_MILESTONES);
             setDbLoading(false);
         } else {
-            // New user defaults (ensure registration is true)
+            // New user or demo user defaults
             if (!savedMilestones) {
-                setMilestones(prev => ({ ...prev, registration: { ...prev.registration, completed: true } }));
+                // Ensure registration is true and transaction exists
+                setMilestones(prev => ({
+                    ...prev,
+                    registration: { ...prev.registration, completed: true }
+                }));
+
+                const regTx = {
+                    id: `tx-reg-${user.uid}`,
+                    type: 'credit', amount: 1,
+                    description: 'Bono de registro', category: 'milestone',
+                    status: 'completed', date: new Date(), counterparty: 'Sistema EISC',
+                };
+
+                setTransactions(prev => {
+                    // Avoid duplicate reg tx
+                    if (prev.some(t => t.id === regTx.id || (t.category === 'milestone' && t.description.includes('registro')))) {
+                        return prev;
+                    }
+                    return [regTx, ...prev];
+                });
             }
             setDbLoading(false);
         }
