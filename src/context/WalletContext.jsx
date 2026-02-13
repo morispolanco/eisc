@@ -20,14 +20,19 @@ const DEMO_TRANSACTIONS = [
 const DEMO_MILESTONES = {
     registration: { completed: true, credits: 1, label: 'Registro completado' },
     portfolio: { completed: true, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
-    identity: { completed: true, credits: 2, label: 'Hito de Verificación — Videollamada o recomendación' },
+    identity: { completed: true, credits: 2, label: 'Hito de Verificación — Recomendación de miembro' },
+    first_sale: { completed: true, credits: 3, label: 'Primera venta — Completaste tu primer servicio' },
 };
 
 const NEW_USER_MILESTONES = {
     registration: { completed: false, credits: 1, label: 'Registro completado' },
     portfolio: { completed: false, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
-    identity: { completed: false, credits: 2, label: 'Hito de Verificación — Videollamada o recomendación' },
+    identity: { completed: false, credits: 2, label: 'Hito de Verificación — Recomendación de miembro' },
+    first_sale: { completed: false, credits: 3, label: 'Primera venta — Completaste tu primer servicio' },
 };
+
+const MONTHLY_BONUS_AMOUNT = 1;
+const MONTHLY_BONUS_DAYS = 30;
 
 // ─── HELPERS ─────────────────────────────────────────────────────
 function mapDbTransaction(row) {
@@ -88,7 +93,8 @@ export function WalletProvider({ children }) {
                 setMilestones({
                     registration: { completed: true, credits: 1, label: 'Registro completado' },
                     portfolio: { completed: false, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
-                    identity: { completed: false, credits: 2, label: 'Hito de Verificación — Videollamada o recomendación' },
+                    identity: { completed: false, credits: 2, label: 'Hito de Verificación — Recomendación de miembro' },
+                    first_sale: { completed: false, credits: 3, label: 'Primera venta — Completaste tu primer servicio' },
                 });
             }
             setDbLoading(false);
@@ -114,12 +120,64 @@ export function WalletProvider({ children }) {
                 .eq('user_id', userId);
 
             if (milestoneRows && milestoneRows.length > 0) {
-                setMilestones(mapDbMilestones(milestoneRows));
+                const mapped = mapDbMilestones(milestoneRows);
+                // Ensure first_sale milestone exists (may be missing for older users)
+                if (!mapped.first_sale) {
+                    mapped.first_sale = { completed: false, credits: 3, label: 'Primera venta — Completaste tu primer servicio' };
+                }
+                setMilestones(mapped);
             }
+
+            // Check monthly activity bonus
+            await checkMonthlyBonus(userId, txRows || []);
         } catch (err) {
             console.error('Error loading wallet data:', err);
         }
         setDbLoading(false);
+    }
+
+    // ── Monthly activity bonus ──
+    async function checkMonthlyBonus(userId, existingTx) {
+        const monthlyTxs = existingTx
+            .filter(tx => tx.category === 'monthly_bonus')
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        const lastBonus = monthlyTxs.length > 0 ? new Date(monthlyTxs[0].created_at) : null;
+        const now = new Date();
+
+        // Check if user has been registered for at least 30 days
+        // and hasn't received a bonus in the last 30 days
+        const daysSinceLastBonus = lastBonus
+            ? (now - lastBonus) / (1000 * 60 * 60 * 24)
+            : MONTHLY_BONUS_DAYS; // first time = eligible
+
+        if (daysSinceLastBonus >= MONTHLY_BONUS_DAYS) {
+            const bonusTx = {
+                id: `tx-monthly-${Date.now()}`,
+                type: 'credit',
+                amount: MONTHLY_BONUS_AMOUNT,
+                description: 'Bono mensual de actividad',
+                category: 'monthly_bonus',
+                status: 'completed',
+                date: now,
+                counterparty: 'Sistema EISC',
+            };
+
+            setTransactions(prev => [bonusTx, ...prev]);
+
+            if (isSupabaseConfigured()) {
+                await supabase.from('transactions').insert({
+                    id: bonusTx.id,
+                    user_id: userId,
+                    type: bonusTx.type,
+                    amount: bonusTx.amount,
+                    description: bonusTx.description,
+                    category: bonusTx.category,
+                    status: bonusTx.status,
+                    counterparty: bonusTx.counterparty,
+                });
+            }
+        }
     }
 
     // ── Calculate balances ──
@@ -241,6 +299,14 @@ export function WalletProvider({ children }) {
                 service_id: newTx.serviceId,
             });
         }
+
+        // Check if this is the first sale → award first_sale milestone
+        if (!milestones.first_sale?.completed) {
+            const hasCompletedServices = transactions.some(tx => tx.category === 'service_completed');
+            if (!hasCompletedServices) {
+                await completeMilestone('first_sale');
+            }
+        }
     };
 
     // ── Complete milestone ──
@@ -299,6 +365,8 @@ export function WalletProvider({ children }) {
             completeMilestone,
             CREDIT_VALUE_USD,
             MIN_CREDIT_LINE,
+            MONTHLY_BONUS_AMOUNT,
+            MONTHLY_BONUS_DAYS,
             dbLoading,
         }}>
             {children}
