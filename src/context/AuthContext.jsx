@@ -103,11 +103,14 @@ export function AuthProvider({ children }) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
             setLoading(false);
-            throw new Error(
-                error.message === 'Invalid login credentials'
-                    ? 'Correo o contraseña incorrectos.'
-                    : error.message
-            );
+            // Provide more specific error messages
+            let errorMessage = error.message;
+            if (error.message === 'Invalid login credentials') {
+                errorMessage = 'Correo o contraseña incorrectos.';
+            } else if (error.message === 'Email not confirmed') {
+                errorMessage = 'Debes confirmar tu correo electrónico antes de iniciar sesión.';
+            }
+            throw new Error(errorMessage);
         }
         // onAuthStateChange will handle setting the user
     };

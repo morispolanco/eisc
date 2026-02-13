@@ -75,31 +75,53 @@ export function WalletProvider({ children }) {
         if (!user || initializedRef.current === user.uid) return;
         initializedRef.current = user.uid;
 
-        if (isSupabaseConfigured()) {
+        if (isSupabaseConfigured() && !user.uid.startsWith('demo-user')) {
             loadFromSupabase(user.uid);
         } else {
-            // Demo mode
-            if (user.uid === 'demo-user-001') {
+            // Demo mode or specific demo user
+            const storageKey = `eisc_milestones_${user.uid}`;
+            const txStorageKey = `eisc_transactions_${user.uid}`;
+
+            const savedMilestones = localStorage.getItem(storageKey);
+            const savedTransactions = localStorage.getItem(txStorageKey);
+
+            if (user.uid === 'demo-user-001' && !savedMilestones) {
                 setTransactions(DEMO_TRANSACTIONS);
                 setMilestones(DEMO_MILESTONES);
             } else {
-                const regTx = {
-                    id: `tx-reg-${user.uid}`,
-                    type: 'credit', amount: 1,
-                    description: 'Bono de registro', category: 'milestone',
-                    status: 'completed', date: new Date(), counterparty: 'Sistema EISC',
-                };
-                setTransactions([regTx]);
-                setMilestones({
-                    registration: { completed: true, credits: 1, label: 'Registro completado' },
-                    portfolio: { completed: false, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
-                    identity: { completed: false, credits: 2, label: 'Hito de Verificación — Recomendación de miembro' },
-                    first_sale: { completed: false, credits: 3, label: 'Primera venta — Completaste tu primer servicio' },
-                });
+                // Initialize/Load from storage
+                const initialMilestones = savedMilestones
+                    ? JSON.parse(savedMilestones)
+                    : {
+                        registration: { completed: true, credits: 1, label: 'Registro completado' },
+                        portfolio: { completed: false, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
+                        identity: { completed: false, credits: 2, label: 'Hito de Verificación — Recomendación de miembro' },
+                        first_sale: { completed: false, credits: 3, label: 'Primera venta — Completaste tu primer servicio' },
+                    };
+
+                const initialTransactions = savedTransactions
+                    ? JSON.parse(savedTransactions)
+                    : [{
+                        id: `tx-reg-${user.uid}`,
+                        type: 'credit', amount: 1,
+                        description: 'Bono de registro', category: 'milestone',
+                        status: 'completed', date: new Date(), counterparty: 'Sistema EISC',
+                    }];
+
+                setMilestones(initialMilestones);
+                setTransactions(initialTransactions);
             }
             setDbLoading(false);
         }
     }, [user]);
+
+    // Save to localStorage when in demo mode
+    useEffect(() => {
+        if (user && (!isSupabaseConfigured() || user.uid.startsWith('demo-user'))) {
+            localStorage.setItem(`eisc_milestones_${user.uid}`, JSON.stringify(milestones));
+            localStorage.setItem(`eisc_transactions_${user.uid}`, JSON.stringify(transactions));
+        }
+    }, [milestones, transactions, user]);
 
     async function loadFromSupabase(userId) {
         setDbLoading(true);
