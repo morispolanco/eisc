@@ -120,23 +120,58 @@ export function WalletProvider({ children }) {
         }
     }, [user]);
 
-    // Secondary Effect: Ensure registration is ALWAYS true if user is logged in
+    // Secondary Effect: Self-healing for registration bonus
     useEffect(() => {
-        if (user && !milestones.registration?.completed) {
+        if (!user || dbLoading) return;
+
+        // 1. Force registration milestone to true
+        if (!milestones.registration?.completed) {
             setMilestones(prev => ({
                 ...prev,
                 registration: { ...prev.registration, completed: true }
             }));
         }
-    }, [user, milestones.registration]);
+
+        // 2. Ensure registration transaction exists (Self-healing balance)
+        const hasRegTx = transactions.some(tx =>
+            tx.id.includes('reg') || (tx.category === 'milestone' && tx.amount === 1)
+        );
+
+        if (!hasRegTx) {
+            const regTx = {
+                id: `tx-reg-${user.uid}-${Date.now()}`,
+                type: 'credit', amount: 1,
+                description: 'Bono de registro (Auto-recuperado)', category: 'milestone',
+                status: 'completed', date: new Date(), counterparty: 'Sistema EISC',
+            };
+
+            setTransactions(prev => [regTx, ...prev]);
+
+            // Persist back to Supabase if possible
+            if (isSupabaseConfigured() && !user.uid.startsWith('demo-user')) {
+                supabase.from('transactions').insert({
+                    id: regTx.id,
+                    user_id: user.uid,
+                    type: regTx.type,
+                    amount: regTx.amount,
+                    description: regTx.description,
+                    category: regTx.category,
+                    status: regTx.status,
+                    counterparty: regTx.counterparty,
+                }).then(({ error }) => {
+                    if (error) console.error('Error auto-persisting reg bonus:', error);
+                });
+            }
+        }
+    }, [user, dbLoading, milestones.registration, transactions.length]);
 
     // Save to localStorage for ALL users (acts as a persistent cache)
     useEffect(() => {
-        if (user) {
+        if (user && !dbLoading) {
             localStorage.setItem(`eisc_milestones_${user.uid}`, JSON.stringify(milestones));
             localStorage.setItem(`eisc_transactions_${user.uid}`, JSON.stringify(transactions));
         }
-    }, [milestones, transactions, user]);
+    }, [milestones, transactions, user, dbLoading]);
 
     async function loadFromSupabase(userId) {
         setDbLoading(true);
@@ -148,7 +183,8 @@ export function WalletProvider({ children }) {
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false });
 
-            if (txRows) setTransactions(txRows.map(mapDbTransaction));
+            const transactionsData = txRows ? txRows.map(mapDbTransaction) : [];
+            setTransactions(transactionsData);
 
             // Load milestones
             const { data: milestoneRows } = await supabase
@@ -158,15 +194,10 @@ export function WalletProvider({ children }) {
 
             if (milestoneRows && milestoneRows.length > 0) {
                 const mapped = mapDbMilestones(milestoneRows);
-                // Merge DB milestones with the default ones so we don't lose keys
-                setMilestones(prev => ({
-                    ...prev,
-                    ...mapped
-                }));
+                setMilestones(prev => ({ ...prev, ...mapped }));
             }
 
-            // Check monthly activity bonus
-            await checkMonthlyBonus(userId, txRows || []);
+            await checkMonthlyBonus(userId, transactionsData);
         } catch (err) {
             console.error('Error loading wallet data:', err);
         }
