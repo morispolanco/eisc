@@ -147,6 +147,8 @@ export function AuthProvider({ children }) {
         }
 
         setLoading(true);
+        console.log(`[EISC Auth] Intentando registro para: ${email}`);
+
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -159,6 +161,7 @@ export function AuthProvider({ children }) {
         });
 
         if (error) {
+            console.error('[EISC Auth] Error en signUp:', error.message);
             setLoading(false);
             throw new Error(
                 error.message.includes('already registered')
@@ -167,12 +170,25 @@ export function AuthProvider({ children }) {
             );
         }
 
-        // Update profile with specialty
+        console.log('[EISC Auth] Registro exitoso en Supabase Auth:', data.user?.id);
+
+        // Update profile with specialty (even though trigger does it, this ensures data is correct)
         if (data.user) {
-            await supabase
-                .from('profiles')
-                .update({ specialty: specialty || 'software', display_name: displayName })
-                .eq('id', data.user.id);
+            try {
+                console.log('[EISC Auth] Actualizando perfil adicional...');
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .update({ specialty: specialty || 'software', display_name: displayName })
+                    .eq('id', data.user.id);
+
+                if (profileError) {
+                    console.warn('[EISC Auth] Advertencia al actualizar perfil:', profileError.message);
+                } else {
+                    console.log('[EISC Auth] Perfil actualizado correctamente.');
+                }
+            } catch (pErr) {
+                console.warn('[EISC Auth] Excepción al actualizar perfil:', pErr);
+            }
         }
 
         // onAuthStateChange will handle setting the user

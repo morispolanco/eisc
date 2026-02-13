@@ -190,12 +190,13 @@ begin
   insert into public.milestones (user_id, milestone_key, completed, credits, label) values
     (new.id, 'registration', true, 1, 'Registro completado'),
     (new.id, 'portfolio', false, 2, 'Hito de Talento — Portafolio o redes profesionales'),
-    (new.id, 'identity', false, 2, 'Hito de Verificación — Videollamada o recomendación');
+    (new.id, 'identity', false, 2, 'Hito de Verificación — Recomendación de miembro'),
+    (new.id, 'first_sale', false, 3, 'Primera venta — Bono por completar tu primer servicio');
 
   -- Create registration bonus transaction
   insert into public.transactions (id, user_id, type, amount, description, category, status, counterparty)
   values (
-    'tx-reg-' || new.id,
+    'tx-reg-' || substr(new.id::text, 1, 8),
     new.id,
     'credit',
     1,
