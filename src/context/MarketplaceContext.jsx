@@ -1,6 +1,7 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useWallet } from './WalletContext';
 import { useAuth } from './AuthContext';
+import { supabase, isSupabaseConfigured } from '../supabase';
 
 const MarketplaceContext = createContext(null);
 
@@ -15,7 +16,7 @@ const CATEGORIES = [
     { id: 'education', label: 'Educación', icon: 'GraduationCap' },
 ];
 
-const INITIAL_SERVICES = [
+const DEMO_SERVICES = [
     {
         id: 'svc-001',
         title: 'Diseño de Logo Profesional',
@@ -106,31 +107,130 @@ const INITIAL_SERVICES = [
     },
 ];
 
+const DEMO_CONTRACTS = [
+    {
+        id: 'contract-001',
+        serviceId: 'svc-001',
+        serviceTitle: 'Diseño de Logo Profesional',
+        buyer: 'demo-user-001',
+        provider: { id: 'user-002', name: 'Ana García' },
+        amount: 8,
+        status: 'in_progress',
+        startDate: new Date('2026-02-10T16:00:00'),
+        expectedDelivery: new Date('2026-02-15T16:00:00'),
+    },
+];
+
+// ─── HELPERS ─────────────────────────────────────────────────────
+function mapDbService(row) {
+    return {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        price: Number(row.price),
+        category: row.category,
+        provider: {
+            id: row.user_id,
+            name: row.provider_name,
+            rating: Number(row.provider_rating),
+            completedJobs: row.provider_completed_jobs,
+        },
+        tags: row.tags || [],
+        deliveryDays: row.delivery_days,
+        status: row.status,
+    };
+}
+
+function mapDbContract(row) {
+    return {
+        id: row.id,
+        serviceId: row.service_id,
+        serviceTitle: row.service_title,
+        buyer: row.buyer_id,
+        provider: { id: row.seller_id, name: row.provider_name },
+        amount: Number(row.amount),
+        status: row.status,
+        startDate: new Date(row.created_at),
+        expectedDelivery: new Date(row.expected_delivery),
+        transactionId: row.transaction_id,
+    };
+}
+
+function mapDbDispute(row) {
+    return {
+        id: row.id,
+        contractId: row.contract_id,
+        reason: row.reason,
+        description: row.description,
+        status: row.status,
+        date: new Date(row.created_at),
+    };
+}
+
+// ─── PROVIDER ────────────────────────────────────────────────────
 export function MarketplaceProvider({ children }) {
     const { user } = useAuth();
     const { purchaseService } = useWallet();
-    const [services, setServices] = useState(INITIAL_SERVICES);
-    const [activeContracts, setActiveContracts] = useState([
-        {
-            id: 'contract-001',
-            serviceId: 'svc-001',
-            serviceTitle: 'Diseño de Logo Profesional',
-            buyer: 'demo-user-001',
-            provider: { id: 'user-002', name: 'Ana García' },
-            amount: 8,
-            status: 'in_progress',
-            startDate: new Date('2026-02-10T16:00:00'),
-            expectedDelivery: new Date('2026-02-15T16:00:00'),
-        },
-    ]);
+    const initializedRef = useRef(false);
 
+    const [services, setServices] = useState(DEMO_SERVICES);
+    const [activeContracts, setActiveContracts] = useState(DEMO_CONTRACTS);
     const [disputes, setDisputes] = useState([]);
 
-    const buyService = (serviceId) => {
+    // ── Load data from Supabase ──
+    useEffect(() => {
+        if (!user || !isSupabaseConfigured() || initializedRef.current) return;
+        initializedRef.current = true;
+
+        loadFromSupabase(user.uid);
+    }, [user]);
+
+    async function loadFromSupabase(userId) {
+        try {
+            // Load services (all active services from all users)
+            const { data: svcRows } = await supabase
+                .from('services')
+                .select('*')
+                .eq('status', 'active')
+                .order('created_at', { ascending: false });
+
+            if (svcRows && svcRows.length > 0) {
+                setServices(svcRows.map(mapDbService));
+            }
+            // if no services in DB, keep demo services
+
+            // Load user's contracts
+            const { data: ctrRows } = await supabase
+                .from('contracts')
+                .select('*')
+                .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+                .order('created_at', { ascending: false });
+
+            if (ctrRows) {
+                setActiveContracts(ctrRows.map(mapDbContract));
+            }
+
+            // Load user's disputes
+            const { data: dspRows } = await supabase
+                .from('disputes')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+
+            if (dspRows) {
+                setDisputes(dspRows.map(mapDbDispute));
+            }
+        } catch (err) {
+            console.error('Error loading marketplace data:', err);
+        }
+    }
+
+    // ── Buy service ──
+    const buyService = async (serviceId) => {
         const service = services.find(s => s.id === serviceId);
         if (!service) return { success: false, error: 'Servicio no encontrado' };
 
-        const result = purchaseService(
+        const result = await purchaseService(
             serviceId,
             service.price,
             service.title,
@@ -151,12 +251,29 @@ export function MarketplaceProvider({ children }) {
                 transactionId: result.transactionId,
             };
             setActiveContracts(prev => [contract, ...prev]);
+
+            // Persist to Supabase
+            if (isSupabaseConfigured() && user) {
+                await supabase.from('contracts').insert({
+                    id: contract.id,
+                    buyer_id: user.uid,
+                    seller_id: service.provider.id,
+                    service_id: serviceId,
+                    service_title: service.title,
+                    amount: service.price,
+                    status: 'in_progress',
+                    provider_name: service.provider.name,
+                    expected_delivery: contract.expectedDelivery.toISOString(),
+                    transaction_id: result.transactionId,
+                });
+            }
         }
 
         return result;
     };
 
-    const publishService = (serviceData) => {
+    // ── Publish service ──
+    const publishService = async (serviceData) => {
         const newService = {
             id: `svc-${Date.now()}`,
             ...serviceData,
@@ -164,16 +281,44 @@ export function MarketplaceProvider({ children }) {
             status: 'active',
         };
         setServices(prev => [newService, ...prev]);
+
+        // Persist to Supabase
+        if (isSupabaseConfigured() && user) {
+            await supabase.from('services').insert({
+                id: newService.id,
+                user_id: user.uid,
+                title: newService.title,
+                description: newService.description,
+                price: newService.price,
+                category: newService.category,
+                delivery_days: newService.deliveryDays,
+                tags: newService.tags || [],
+                status: 'active',
+                provider_name: user.displayName,
+                provider_rating: 0,
+                provider_completed_jobs: 0,
+            });
+        }
+
         return newService;
     };
 
-    const confirmDelivery = (contractId) => {
+    // ── Confirm delivery ──
+    const confirmDelivery = async (contractId) => {
         setActiveContracts(prev =>
             prev.map(c => c.id === contractId ? { ...c, status: 'completed' } : c)
         );
+
+        if (isSupabaseConfigured()) {
+            await supabase
+                .from('contracts')
+                .update({ status: 'completed' })
+                .eq('id', contractId);
+        }
     };
 
-    const openDispute = (contractId, reason, description) => {
+    // ── Open dispute ──
+    const openDispute = async (contractId, reason, description) => {
         const contract = activeContracts.find(c => c.id === contractId);
         if (!contract) return;
 
@@ -193,6 +338,22 @@ export function MarketplaceProvider({ children }) {
         setActiveContracts(prev =>
             prev.map(c => c.id === contractId ? { ...c, status: 'disputed' } : c)
         );
+
+        if (isSupabaseConfigured() && user) {
+            await supabase.from('disputes').insert({
+                id: dispute.id,
+                user_id: user.uid,
+                contract_id: contractId,
+                reason,
+                description,
+                status: 'open',
+            });
+
+            await supabase
+                .from('contracts')
+                .update({ status: 'disputed' })
+                .eq('id', contractId);
+        }
     };
 
     return (

@@ -1,76 +1,20 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
+import { supabase, isSupabaseConfigured } from '../supabase';
 
 const WalletContext = createContext(null);
 
 const CREDIT_VALUE_USD = 10;
 const MIN_CREDIT_LINE = -10;
 
-// Demo user transactions (for the pre-seeded account)
+// ─── DEMO DATA (when Supabase is not configured) ─────────────────
 const DEMO_TRANSACTIONS = [
-    {
-        id: 'tx-001',
-        type: 'credit',
-        amount: 1,
-        description: 'Bono de registro',
-        category: 'milestone',
-        status: 'completed',
-        date: new Date('2026-02-01T10:00:00'),
-        counterparty: 'Sistema EISC',
-    },
-    {
-        id: 'tx-002',
-        type: 'credit',
-        amount: 2,
-        description: 'Portafolio verificado',
-        category: 'milestone',
-        status: 'completed',
-        date: new Date('2026-02-03T14:30:00'),
-        counterparty: 'Sistema EISC',
-    },
-    {
-        id: 'tx-003',
-        type: 'credit',
-        amount: 2,
-        description: 'Identidad verificada',
-        category: 'milestone',
-        status: 'completed',
-        date: new Date('2026-02-05T09:15:00'),
-        counterparty: 'Sistema EISC',
-    },
-    {
-        id: 'tx-004',
-        type: 'debit',
-        amount: 8,
-        description: 'Diseño de Logo Profesional',
-        category: 'service_purchase',
-        status: 'escrow',
-        date: new Date('2026-02-10T16:00:00'),
-        counterparty: 'Ana García',
-        serviceId: 'svc-001',
-    },
-    {
-        id: 'tx-005',
-        type: 'credit',
-        amount: 5,
-        description: 'Consultoría Legal',
-        category: 'service_completed',
-        status: 'completed',
-        date: new Date('2026-02-11T11:00:00'),
-        counterparty: 'Roberto Silva',
-        serviceId: 'svc-002',
-    },
-    {
-        id: 'tx-006',
-        type: 'debit',
-        amount: 3,
-        description: 'Revisión de Código React',
-        category: 'service_purchase',
-        status: 'completed',
-        date: new Date('2026-02-12T08:00:00'),
-        counterparty: 'María López',
-        serviceId: 'svc-003',
-    },
+    { id: 'tx-001', type: 'credit', amount: 1, description: 'Bono de registro', category: 'milestone', status: 'completed', date: new Date('2026-02-01T10:00:00'), counterparty: 'Sistema EISC' },
+    { id: 'tx-002', type: 'credit', amount: 2, description: 'Portafolio verificado', category: 'milestone', status: 'completed', date: new Date('2026-02-03T14:30:00'), counterparty: 'Sistema EISC' },
+    { id: 'tx-003', type: 'credit', amount: 2, description: 'Identidad verificada', category: 'milestone', status: 'completed', date: new Date('2026-02-05T09:15:00'), counterparty: 'Sistema EISC' },
+    { id: 'tx-004', type: 'debit', amount: 8, description: 'Diseño de Logo Profesional', category: 'service_purchase', status: 'escrow', date: new Date('2026-02-10T16:00:00'), counterparty: 'Ana García', serviceId: 'svc-001' },
+    { id: 'tx-005', type: 'credit', amount: 5, description: 'Consultoría Legal', category: 'service_completed', status: 'completed', date: new Date('2026-02-11T11:00:00'), counterparty: 'Roberto Silva', serviceId: 'svc-002' },
+    { id: 'tx-006', type: 'debit', amount: 3, description: 'Revisión de Código React', category: 'service_purchase', status: 'completed', date: new Date('2026-02-12T08:00:00'), counterparty: 'María López', serviceId: 'svc-003' },
 ];
 
 const DEMO_MILESTONES = {
@@ -85,52 +29,102 @@ const NEW_USER_MILESTONES = {
     identity: { completed: false, credits: 2, label: 'Hito de Verificación — Videollamada o recomendación' },
 };
 
+// ─── HELPERS ─────────────────────────────────────────────────────
+function mapDbTransaction(row) {
+    return {
+        id: row.id,
+        type: row.type,
+        amount: Number(row.amount),
+        description: row.description,
+        category: row.category,
+        status: row.status,
+        date: new Date(row.created_at),
+        counterparty: row.counterparty,
+        serviceId: row.service_id || null,
+    };
+}
+
+function mapDbMilestones(rows) {
+    const result = {};
+    rows.forEach(row => {
+        result[row.milestone_key] = {
+            completed: row.completed,
+            credits: Number(row.credits),
+            label: row.label,
+        };
+    });
+    return result;
+}
+
+// ─── PROVIDER ────────────────────────────────────────────────────
 export function WalletProvider({ children }) {
     const { user } = useAuth();
     const initializedRef = useRef(null);
 
-    const isDemo = user?.uid === 'demo-user-001';
-    const isNew = user?.isNewUser;
+    const [transactions, setTransactions] = useState([]);
+    const [milestones, setMilestones] = useState({ ...NEW_USER_MILESTONES });
+    const [dbLoading, setDbLoading] = useState(true);
 
-    // Initialize based on user type
-    const [transactions, setTransactions] = useState(isDemo ? DEMO_TRANSACTIONS : []);
-    const [milestones, setMilestones] = useState(isDemo ? DEMO_MILESTONES : { ...NEW_USER_MILESTONES });
-
-    // When user changes, reset state and award registration milestone for new users
+    // ── Load data from Supabase or fallback to demo ──
     useEffect(() => {
         if (!user || initializedRef.current === user.uid) return;
         initializedRef.current = user.uid;
 
-        if (user.uid === 'demo-user-001') {
-            setTransactions(DEMO_TRANSACTIONS);
-            setMilestones(DEMO_MILESTONES);
+        if (isSupabaseConfigured()) {
+            loadFromSupabase(user.uid);
         } else {
-            // Fresh user — start clean and award registration
-            const regTx = {
-                id: `tx-reg-${user.uid}`,
-                type: 'credit',
-                amount: 1,
-                description: 'Bono de registro',
-                category: 'milestone',
-                status: 'completed',
-                date: new Date(),
-                counterparty: 'Sistema EISC',
-            };
-            setTransactions([regTx]);
-            setMilestones({
-                registration: { completed: true, credits: 1, label: 'Registro completado' },
-                portfolio: { completed: false, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
-                identity: { completed: false, credits: 2, label: 'Hito de Verificación — Videollamada o recomendación' },
-            });
+            // Demo mode
+            if (user.uid === 'demo-user-001') {
+                setTransactions(DEMO_TRANSACTIONS);
+                setMilestones(DEMO_MILESTONES);
+            } else {
+                const regTx = {
+                    id: `tx-reg-${user.uid}`,
+                    type: 'credit', amount: 1,
+                    description: 'Bono de registro', category: 'milestone',
+                    status: 'completed', date: new Date(), counterparty: 'Sistema EISC',
+                };
+                setTransactions([regTx]);
+                setMilestones({
+                    registration: { completed: true, credits: 1, label: 'Registro completado' },
+                    portfolio: { completed: false, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
+                    identity: { completed: false, credits: 2, label: 'Hito de Verificación — Videollamada o recomendación' },
+                });
+            }
+            setDbLoading(false);
         }
     }, [user]);
 
-    // Calculate balances from ledger
+    async function loadFromSupabase(userId) {
+        setDbLoading(true);
+        try {
+            // Load transactions
+            const { data: txRows } = await supabase
+                .from('transactions')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+
+            if (txRows) setTransactions(txRows.map(mapDbTransaction));
+
+            // Load milestones
+            const { data: milestoneRows } = await supabase
+                .from('milestones')
+                .select('*')
+                .eq('user_id', userId);
+
+            if (milestoneRows && milestoneRows.length > 0) {
+                setMilestones(mapDbMilestones(milestoneRows));
+            }
+        } catch (err) {
+            console.error('Error loading wallet data:', err);
+        }
+        setDbLoading(false);
+    }
+
+    // ── Calculate balances ──
     const calculateBalances = useCallback(() => {
-        let available = 0;
-        let inEscrow = 0;
-        let totalEarned = 0;
-        let totalSpent = 0;
+        let available = 0, inEscrow = 0, totalEarned = 0, totalSpent = 0;
 
         transactions.forEach(tx => {
             if (tx.type === 'credit' && tx.status === 'completed') {
@@ -146,15 +140,11 @@ export function WalletProvider({ children }) {
         });
 
         return {
-            available,
-            inEscrow,
-            totalEarned,
-            totalSpent,
+            available, inEscrow, totalEarned, totalSpent,
             availableUSD: available * CREDIT_VALUE_USD,
             inEscrowUSD: inEscrow * CREDIT_VALUE_USD,
             creditLine: MIN_CREDIT_LINE,
-            canSpend: available - MIN_CREDIT_LINE, // How much they can actually spend
-            // Credit line details
+            canSpend: available - MIN_CREDIT_LINE,
             isUsingCreditLine: available < 0,
             debtAmount: available < 0 ? Math.abs(available) : 0,
             debtAmountUSD: available < 0 ? Math.abs(available) * CREDIT_VALUE_USD : 0,
@@ -168,13 +158,10 @@ export function WalletProvider({ children }) {
 
     const balances = calculateBalances();
 
-    // Check if user can afford a purchase (considering negative credit line)
-    const canAfford = (amount) => {
-        return (balances.available - amount) >= MIN_CREDIT_LINE;
-    };
+    const canAfford = (amount) => (balances.available - amount) >= MIN_CREDIT_LINE;
 
-    // Purchase service - move credits to escrow
-    const purchaseService = (serviceId, amount, description, provider) => {
+    // ── Purchase service ──
+    const purchaseService = async (serviceId, amount, description, provider) => {
         if (!canAfford(amount)) {
             return { success: false, error: 'Fondos insuficientes. Límite de crédito alcanzado.' };
         }
@@ -192,20 +179,41 @@ export function WalletProvider({ children }) {
         };
 
         setTransactions(prev => [newTx, ...prev]);
+
+        // Persist to Supabase
+        if (isSupabaseConfigured() && user) {
+            await supabase.from('transactions').insert({
+                id: newTx.id,
+                user_id: user.uid,
+                type: newTx.type,
+                amount: newTx.amount,
+                description: newTx.description,
+                category: newTx.category,
+                status: newTx.status,
+                counterparty: newTx.counterparty,
+                service_id: newTx.serviceId,
+            });
+        }
+
         return { success: true, transactionId: newTx.id };
     };
 
-    // Release escrow - confirm service completion
-    const releaseEscrow = (transactionId) => {
+    // ── Release escrow ──
+    const releaseEscrow = async (transactionId) => {
         setTransactions(prev =>
-            prev.map(tx =>
-                tx.id === transactionId ? { ...tx, status: 'completed' } : tx
-            )
+            prev.map(tx => tx.id === transactionId ? { ...tx, status: 'completed' } : tx)
         );
+
+        if (isSupabaseConfigured()) {
+            await supabase
+                .from('transactions')
+                .update({ status: 'completed' })
+                .eq('id', transactionId);
+        }
     };
 
-    // Receive payment for service
-    const receivePayment = (amount, description, buyer, serviceId) => {
+    // ── Receive payment ──
+    const receivePayment = async (amount, description, buyer, serviceId) => {
         const newTx = {
             id: `tx-${Date.now()}`,
             type: 'credit',
@@ -219,10 +227,24 @@ export function WalletProvider({ children }) {
         };
 
         setTransactions(prev => [newTx, ...prev]);
+
+        if (isSupabaseConfigured() && user) {
+            await supabase.from('transactions').insert({
+                id: newTx.id,
+                user_id: user.uid,
+                type: newTx.type,
+                amount: newTx.amount,
+                description: newTx.description,
+                category: newTx.category,
+                status: newTx.status,
+                counterparty: newTx.counterparty,
+                service_id: newTx.serviceId,
+            });
+        }
     };
 
-    // Add milestone credits
-    const completeMilestone = (milestoneKey) => {
+    // ── Complete milestone ──
+    const completeMilestone = async (milestoneKey) => {
         if (milestones[milestoneKey]?.completed) return;
 
         const milestone = milestones[milestoneKey];
@@ -242,6 +264,27 @@ export function WalletProvider({ children }) {
             ...prev,
             [milestoneKey]: { ...prev[milestoneKey], completed: true },
         }));
+
+        if (isSupabaseConfigured() && user) {
+            // Insert transaction
+            await supabase.from('transactions').insert({
+                id: newTx.id,
+                user_id: user.uid,
+                type: newTx.type,
+                amount: newTx.amount,
+                description: newTx.description,
+                category: newTx.category,
+                status: newTx.status,
+                counterparty: newTx.counterparty,
+            });
+
+            // Update milestone
+            await supabase
+                .from('milestones')
+                .update({ completed: true, completed_at: new Date().toISOString() })
+                .eq('user_id', user.uid)
+                .eq('milestone_key', milestoneKey);
+        }
     };
 
     return (
@@ -256,6 +299,7 @@ export function WalletProvider({ children }) {
             completeMilestone,
             CREDIT_VALUE_USD,
             MIN_CREDIT_LINE,
+            dbLoading,
         }}>
             {children}
         </WalletContext.Provider>
