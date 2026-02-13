@@ -70,54 +70,50 @@ export function WalletProvider({ children }) {
     const [milestones, setMilestones] = useState({ ...NEW_USER_MILESTONES });
     const [dbLoading, setDbLoading] = useState(true);
 
-    // ── Load data from Supabase or fallback to demo ──
+    // ── Load data (Supabase + LocalStorage Cache) ──
     useEffect(() => {
         if (!user || initializedRef.current === user.uid) return;
         initializedRef.current = user.uid;
 
+        // 1. Initial Load from LocalStorage (fast UI)
+        const storageKey = `eisc_milestones_${user.uid}`;
+        const txStorageKey = `eisc_transactions_${user.uid}`;
+        const savedMilestones = localStorage.getItem(storageKey);
+        const savedTransactions = localStorage.getItem(txStorageKey);
+
+        if (savedMilestones) setMilestones(JSON.parse(savedMilestones));
+        if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+
+        // 2. Refresh from Supabase if configured
         if (isSupabaseConfigured() && !user.uid.startsWith('demo-user')) {
             loadFromSupabase(user.uid);
+        } else if (user.uid === 'demo-user-001' && !savedMilestones) {
+            // Default demo data only if nothing in storage
+            setTransactions(DEMO_TRANSACTIONS);
+            setMilestones(DEMO_MILESTONES);
+            setDbLoading(false);
         } else {
-            // Demo mode or specific demo user
-            const storageKey = `eisc_milestones_${user.uid}`;
-            const txStorageKey = `eisc_transactions_${user.uid}`;
-
-            const savedMilestones = localStorage.getItem(storageKey);
-            const savedTransactions = localStorage.getItem(txStorageKey);
-
-            if (user.uid === 'demo-user-001' && !savedMilestones) {
-                setTransactions(DEMO_TRANSACTIONS);
-                setMilestones(DEMO_MILESTONES);
-            } else {
-                // Initialize/Load from storage
-                const initialMilestones = savedMilestones
-                    ? JSON.parse(savedMilestones)
-                    : {
-                        registration: { completed: true, credits: 1, label: 'Registro completado' },
-                        portfolio: { completed: false, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
-                        identity: { completed: false, credits: 2, label: 'Hito de Verificación — Recomendación de miembro' },
-                        first_sale: { completed: false, credits: 3, label: 'Primera venta — Completaste tu primer servicio' },
-                    };
-
-                const initialTransactions = savedTransactions
-                    ? JSON.parse(savedTransactions)
-                    : [{
-                        id: `tx-reg-${user.uid}`,
-                        type: 'credit', amount: 1,
-                        description: 'Bono de registro', category: 'milestone',
-                        status: 'completed', date: new Date(), counterparty: 'Sistema EISC',
-                    }];
-
-                setMilestones(initialMilestones);
-                setTransactions(initialTransactions);
+            // New user defaults (ensure registration is true)
+            if (!savedMilestones) {
+                setMilestones(prev => ({ ...prev, registration: { ...prev.registration, completed: true } }));
             }
             setDbLoading(false);
         }
     }, [user]);
 
-    // Save to localStorage when in demo mode
+    // Secondary Effect: Ensure registration is ALWAYS true if user is logged in
     useEffect(() => {
-        if (user && (!isSupabaseConfigured() || user.uid.startsWith('demo-user'))) {
+        if (user && !milestones.registration?.completed) {
+            setMilestones(prev => ({
+                ...prev,
+                registration: { ...prev.registration, completed: true }
+            }));
+        }
+    }, [user, milestones.registration]);
+
+    // Save to localStorage for ALL users (acts as a persistent cache)
+    useEffect(() => {
+        if (user) {
             localStorage.setItem(`eisc_milestones_${user.uid}`, JSON.stringify(milestones));
             localStorage.setItem(`eisc_transactions_${user.uid}`, JSON.stringify(transactions));
         }
@@ -380,8 +376,15 @@ export function WalletProvider({ children }) {
                         label: milestone.label
                     }, { onConflict: 'user_id,milestone_key' });
 
-                if (msErr) throw msErr;
-                console.log(`Milestone ${milestoneKey} persisted successfully`);
+                if (msErr) {
+                    console.error('Supabase msErr:', msErr);
+                    // If upsert fails, try update as fallback
+                    await supabase
+                        .from('milestones')
+                        .update({ completed: true, completed_at: new Date().toISOString() })
+                        .match({ user_id: user.uid, milestone_key: milestoneKey });
+                }
+                console.log(`Milestone ${milestoneKey} persistence attempted`);
             } catch (err) {
                 console.error('Error persisting milestone:', err);
             }
