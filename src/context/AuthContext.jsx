@@ -82,28 +82,31 @@ export function AuthProvider({ children }) {
 
     // ── LOGIN ──
     const login = async (email, password) => {
-        // Check demo credentials first (always works)
-        const stored = STORED_USERS.get(email);
-        if (stored && stored.password === password) {
-            setLoading(true);
-            await new Promise(r => setTimeout(r, 800));
-            const { password: _, ...userData } = stored;
-            setUser({ ...userData, isNewUser: false });
-            sessionStorage.setItem('eisc_user', JSON.stringify({ ...userData, isNewUser: false }));
-            setLoading(false);
-            return;
-        }
+        const supabaseActive = isSupabaseConfigured();
+        console.log(`[EISC Auth] Intentando login. Supabase activo: ${supabaseActive}`);
 
-        if (!isSupabaseConfigured()) {
+        // Only use demo fallback if Supabase is NOT configured
+        if (!supabaseActive) {
+            console.log('[EISC Auth] Usando modo demo (Supabase no detectado)');
+            const stored = STORED_USERS.get(email);
+            if (stored && stored.password === password) {
+                setLoading(true);
+                await new Promise(r => setTimeout(r, 800));
+                const { password: _, ...userData } = stored;
+                setUser({ ...userData, isNewUser: false });
+                sessionStorage.setItem('eisc_user', JSON.stringify({ ...userData, isNewUser: false }));
+                setLoading(false);
+                return;
+            }
             throw new Error('Correo o contraseña incorrectos.');
         }
 
-        // Supabase auth
+        // Supabase auth (Mandatory if configured)
         setLoading(true);
+        console.log('[EISC Auth] Conectando con Supabase Auth...');
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
             setLoading(false);
-            // Provide more specific error messages
             let errorMessage = error.message;
             if (error.message === 'Invalid login credentials') {
                 errorMessage = 'Correo o contraseña incorrectos.';
@@ -112,7 +115,6 @@ export function AuthProvider({ children }) {
             }
             throw new Error(errorMessage);
         }
-        // onAuthStateChange will handle setting the user
     };
 
     // ── REGISTER ──

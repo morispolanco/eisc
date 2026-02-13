@@ -84,39 +84,36 @@ export function WalletProvider({ children }) {
         if (savedMilestones) setMilestones(JSON.parse(savedMilestones));
         if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
 
-        // 2. Refresh from Supabase if configured
-        if (isSupabaseConfigured() && !user.uid.startsWith('demo-user')) {
+        // 2. Refresh from Supabase if configured (Only for real UUIDs)
+        const isDemoId = user.uid.startsWith('demo-user');
+
+        if (isSupabaseConfigured() && !isDemoId) {
+            console.log(`[EISC Wallet] Sincronizando con Supabase real: ${user.uid}`);
             loadFromSupabase(user.uid);
-        } else if (user.uid === 'demo-user-001' && !savedMilestones) {
-            // Default demo data only if nothing in storage
-            setTransactions(DEMO_TRANSACTIONS);
-            setMilestones(DEMO_MILESTONES);
-            setDbLoading(false);
         } else {
-            // New user or demo user defaults
-            if (!savedMilestones) {
-                // Ensure registration is true and transaction exists
+            console.log(`[EISC Wallet] Modo Local/Demo activo para: ${user.uid}`);
+            if (user.uid === 'demo-user-001' && !savedMilestones) {
+                // Default demo data only if nothing in storage
+                setTransactions(DEMO_TRANSACTIONS);
+                setMilestones(DEMO_MILESTONES);
+                setDbLoading(false);
+            } else if (!savedMilestones) {
+                // New user local defaults
                 setMilestones(prev => ({
                     ...prev,
                     registration: { ...prev.registration, completed: true }
                 }));
-
                 const regTx = {
                     id: `tx-reg-${user.uid}`,
                     type: 'credit', amount: 1,
-                    description: 'Bono de registro', category: 'milestone',
+                    description: 'Bono de registro (Local)', category: 'milestone',
                     status: 'completed', date: new Date(), counterparty: 'Sistema EISC',
                 };
-
-                setTransactions(prev => {
-                    // Avoid duplicate reg tx
-                    if (prev.some(t => t.id === regTx.id || (t.category === 'milestone' && t.description.includes('registro')))) {
-                        return prev;
-                    }
-                    return [regTx, ...prev];
-                });
+                setTransactions([regTx]);
+                setDbLoading(false);
+            } else {
+                setDbLoading(false);
             }
-            setDbLoading(false);
         }
     }, [user]);
 
@@ -183,7 +180,30 @@ export function WalletProvider({ children }) {
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false });
 
-            const transactionsData = txRows ? txRows.map(mapDbTransaction) : [];
+            let transactionsData = txRows ? txRows.map(mapDbTransaction) : [];
+
+            // AGGRESSIVE FIX: If no registration bonus exists, add it immediately
+            const hasRegTx = transactionsData.some(tx =>
+                tx.id.includes('reg') || (tx.category === 'milestone' && tx.amount === 1)
+            );
+
+            if (!hasRegTx) {
+                const regTx = {
+                    id: `tx-reg-${userId}`,
+                    type: 'credit', amount: 1,
+                    description: 'Bono de registro (Base)', category: 'milestone',
+                    status: 'completed', date: new Date(), counterparty: 'Sistema EISC',
+                };
+                transactionsData = [regTx, ...transactionsData];
+
+                // Fire and forget persistence
+                supabase.from('transactions').insert({
+                    id: regTx.id, user_id: userId, type: 'credit', amount: 1,
+                    description: regTx.description, category: 'milestone',
+                    status: 'completed', counterparty: 'Sistema EISC'
+                }).then(() => console.log("Baseline balance persisted"));
+            }
+
             setTransactions(transactionsData);
 
             // Load milestones
@@ -192,10 +212,12 @@ export function WalletProvider({ children }) {
                 .select('*')
                 .eq('user_id', userId);
 
-            if (milestoneRows && milestoneRows.length > 0) {
-                const mapped = mapDbMilestones(milestoneRows);
-                setMilestones(prev => ({ ...prev, ...mapped }));
-            }
+            const milestonesData = milestoneRows ? mapDbMilestones(milestoneRows) : {};
+            setMilestones(prev => ({
+                ...prev,
+                ...milestonesData,
+                registration: { ...prev.registration, completed: true }
+            }));
 
             await checkMonthlyBonus(userId, transactionsData);
         } catch (err) {
