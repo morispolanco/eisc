@@ -82,15 +82,11 @@ export function AuthProvider({ children }) {
 
     // ── LOGIN ──
     const login = async (email, password) => {
-        if (!isSupabaseConfigured()) {
-            // Demo fallback
+        // Check demo credentials first (always works)
+        const stored = STORED_USERS.get(email);
+        if (stored && stored.password === password) {
             setLoading(true);
-            await new Promise(r => setTimeout(r, 1000));
-            const stored = STORED_USERS.get(email);
-            if (!stored || stored.password !== password) {
-                setLoading(false);
-                throw new Error('Correo o contraseña incorrectos.');
-            }
+            await new Promise(r => setTimeout(r, 800));
             const { password: _, ...userData } = stored;
             setUser({ ...userData, isNewUser: false });
             sessionStorage.setItem('eisc_user', JSON.stringify({ ...userData, isNewUser: false }));
@@ -98,6 +94,11 @@ export function AuthProvider({ children }) {
             return;
         }
 
+        if (!isSupabaseConfigured()) {
+            throw new Error('Correo o contraseña incorrectos.');
+        }
+
+        // Supabase auth
         setLoading(true);
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {

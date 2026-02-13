@@ -3,8 +3,8 @@ import { useWallet } from '../context/WalletContext';
 import { useAuth } from '../context/AuthContext';
 import {
     Award, CheckCircle2, Coins, ChevronRight, Briefcase, ShieldCheck,
-    Linkedin, Github, Globe, Upload, Video, Users, Star, ArrowRight,
-    ExternalLink, FileText, Camera, UserCheck, Link2, Sparkles, Lock
+    Linkedin, Github, Globe, Upload, Users, Star, ArrowRight,
+    ExternalLink, FileText, UserCheck, Link2, Sparkles, Lock
 } from 'lucide-react';
 
 function ProgressBar({ completed, total }) {
@@ -176,29 +176,10 @@ function TalentMilestone({ completed, onComplete }) {
 }
 
 function VerificationMilestone({ completed, onComplete }) {
-    const [mode, setMode] = useState(null); // 'videocall' | 'referral'
     const [referralEmail, setReferralEmail] = useState('');
     const [referralMessage, setReferralMessage] = useState('');
-    const [selectedSlot, setSelectedSlot] = useState('');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
-
-    const timeSlots = [
-        { id: '1', label: 'Hoy, 14:00 - 14:15', available: true },
-        { id: '2', label: 'Hoy, 16:30 - 16:45', available: true },
-        { id: '3', label: 'Mañana, 10:00 - 10:15', available: true },
-        { id: '4', label: 'Mañana, 12:00 - 12:15', available: true },
-        { id: '5', label: 'Mañana, 17:00 - 17:15', available: false },
-    ];
-
-    const handleSubmitVideo = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        await new Promise(r => setTimeout(r, 1500));
-        onComplete('identity');
-        setSuccess(true);
-        setLoading(false);
-    };
 
     const handleSubmitReferral = async (e) => {
         e.preventDefault();
@@ -240,122 +221,36 @@ function VerificationMilestone({ completed, onComplete }) {
                             <span className="badge-info">+2 créditos</span>
                         </div>
                         <p className="text-sm text-surface-400 mt-1">
-                            Verifica tu identidad con una videollamada rápida de 15 minutos o solicita la recomendación de un miembro activo de la plataforma.
+                            Solicita la recomendación de un miembro activo de la plataforma para verificar tu identidad y desbloquear créditos.
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Options */}
-            {!mode ? (
-                <div className="p-6 space-y-3">
-                    <p className="text-xs text-surface-500 uppercase tracking-wider font-medium mb-3">Elige una opción</p>
-
-                    <button
-                        onClick={() => setMode('videocall')}
-                        className="w-full flex items-center gap-4 p-4 rounded-xl bg-surface-800/30 hover:bg-surface-800/60 border border-surface-700/50 hover:border-brand-500/30 transition-all group"
-                    >
-                        <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/20 transition-colors">
-                            <Video className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 text-left">
-                            <p className="text-sm font-semibold text-white group-hover:text-brand-400 transition-colors">Videollamada de Validación</p>
-                            <p className="text-xs text-surface-500 mt-0.5">Llamada de 15 min con un agente EISC para verificar tu identidad</p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-surface-600 group-hover:text-brand-400 transition-colors" />
-                    </button>
-
-                    <button
-                        onClick={() => setMode('referral')}
-                        className="w-full flex items-center gap-4 p-4 rounded-xl bg-surface-800/30 hover:bg-surface-800/60 border border-surface-700/50 hover:border-brand-500/30 transition-all group"
-                    >
-                        <div className="w-11 h-11 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500/20 transition-colors">
-                            <UserCheck className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 text-left">
-                            <p className="text-sm font-semibold text-white group-hover:text-brand-400 transition-colors">Recomendación de Miembro</p>
-                            <p className="text-xs text-surface-500 mt-0.5">Solicita que un miembro activo de EISC valide tu identidad</p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-surface-600 group-hover:text-brand-400 transition-colors" />
-                    </button>
+            {/* Referral form */}
+            <form onSubmit={handleSubmitReferral} className="p-6 space-y-4 animate-fade-in">
+                <div>
+                    <label className="block text-sm font-medium text-surface-300 mb-1.5">Correo del miembro que te recomienda</label>
+                    <input type="email" value={referralEmail} onChange={e => setReferralEmail(e.target.value)} placeholder="miembro@ejemplo.com" className="input-field" required />
+                    <p className="text-xs text-surface-600 mt-1">El miembro debe tener al menos 3 transacciones completadas en EISC.</p>
                 </div>
-            ) : mode === 'videocall' ? (
-                <form onSubmit={handleSubmitVideo} className="p-6 space-y-4 animate-fade-in">
-                    <button type="button" onClick={() => setMode(null)} className="text-xs text-surface-500 hover:text-white transition-colors mb-1">← Volver a opciones</button>
 
-                    <div>
-                        <label className="block text-sm font-medium text-surface-300 mb-2">Selecciona un horario disponible</label>
-                        <div className="space-y-2">
-                            {timeSlots.map(slot => (
-                                <label
-                                    key={slot.id}
-                                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${!slot.available ? 'opacity-40 cursor-not-allowed' :
-                                            selectedSlot === slot.id
-                                                ? 'bg-brand-500/10 border border-brand-500/30'
-                                                : 'bg-surface-800/30 border border-surface-700/50 hover:border-surface-600'
-                                        }`}
-                                >
-                                    <input
-                                        type="radio"
-                                        name="slot"
-                                        value={slot.id}
-                                        checked={selectedSlot === slot.id}
-                                        onChange={e => setSelectedSlot(e.target.value)}
-                                        disabled={!slot.available}
-                                        className="sr-only"
-                                    />
-                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedSlot === slot.id ? 'border-brand-500 bg-brand-500' : 'border-surface-600'
-                                        }`}>
-                                        {selectedSlot === slot.id && <div className="w-2 h-2 rounded-full bg-white" />}
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm text-white">{slot.label}</p>
-                                    </div>
-                                    {!slot.available && <span className="text-[10px] text-surface-600">No disponible</span>}
-                                    {slot.available && <Video className="w-4 h-4 text-surface-600" />}
-                                </label>
-                            ))}
-                        </div>
-                    </div>
+                <div>
+                    <label className="block text-sm font-medium text-surface-300 mb-1.5">Mensaje para el miembro (opcional)</label>
+                    <textarea value={referralMessage} onChange={e => setReferralMessage(e.target.value)} placeholder="Hola, ¿podrías validar mi identidad en EISC?" className="input-field min-h-[80px] resize-y" />
+                </div>
 
-                    <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-                        <p className="text-xs text-emerald-300 flex items-start gap-2">
-                            <Camera className="w-4 h-4 shrink-0 mt-0.5" />
-                            La videollamada dura ~15 minutos. Necesitarás una identificación oficial con foto y cámara encendida.
-                        </p>
-                    </div>
+                <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                    <p className="text-xs text-amber-300 flex items-start gap-2">
+                        <Users className="w-4 h-4 shrink-0 mt-0.5" />
+                        Enviaremos una solicitud al miembro. Una vez que confirme, tus créditos se acreditarán automáticamente.
+                    </p>
+                </div>
 
-                    <button type="submit" disabled={loading || !selectedSlot} className="btn-primary w-full flex items-center justify-center gap-2">
-                        {loading ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Agendando...</>) : (<><Video className="w-4 h-4" />Agendar videollamada</>)}
-                    </button>
-                </form>
-            ) : (
-                <form onSubmit={handleSubmitReferral} className="p-6 space-y-4 animate-fade-in">
-                    <button type="button" onClick={() => setMode(null)} className="text-xs text-surface-500 hover:text-white transition-colors mb-1">← Volver a opciones</button>
-
-                    <div>
-                        <label className="block text-sm font-medium text-surface-300 mb-1.5">Correo del miembro que te recomienda</label>
-                        <input type="email" value={referralEmail} onChange={e => setReferralEmail(e.target.value)} placeholder="miembro@ejemplo.com" className="input-field" required />
-                        <p className="text-xs text-surface-600 mt-1">El miembro debe tener al menos 3 transacciones completadas en EISC.</p>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-surface-300 mb-1.5">Mensaje para el miembro (opcional)</label>
-                        <textarea value={referralMessage} onChange={e => setReferralMessage(e.target.value)} placeholder="Hola, ¿podrías validar mi identidad en EISC?" className="input-field min-h-[80px] resize-y" />
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
-                        <p className="text-xs text-amber-300 flex items-start gap-2">
-                            <Users className="w-4 h-4 shrink-0 mt-0.5" />
-                            Enviaremos una solicitud al miembro. Una vez que confirme, tus créditos se acreditarán automáticamente.
-                        </p>
-                    </div>
-
-                    <button type="submit" disabled={loading || !referralEmail} className="btn-primary w-full flex items-center justify-center gap-2">
-                        {loading ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Enviando solicitud...</>) : (<><UserCheck className="w-4 h-4" />Solicitar recomendación</>)}
-                    </button>
-                </form>
-            )}
+                <button type="submit" disabled={loading || !referralEmail} className="btn-primary w-full flex items-center justify-center gap-2">
+                    {loading ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Enviando solicitud...</>) : (<><UserCheck className="w-4 h-4" />Solicitar recomendación</>)}
+                </button>
+            </form>
         </div>
     );
 }
