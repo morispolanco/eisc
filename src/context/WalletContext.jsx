@@ -121,11 +121,11 @@ export function WalletProvider({ children }) {
 
             if (milestoneRows && milestoneRows.length > 0) {
                 const mapped = mapDbMilestones(milestoneRows);
-                // Ensure first_sale milestone exists (may be missing for older users)
-                if (!mapped.first_sale) {
-                    mapped.first_sale = { completed: false, credits: 3, label: 'Primera venta — Completaste tu primer servicio' };
-                }
-                setMilestones(mapped);
+                // Merge DB milestones with the default ones so we don't lose keys
+                setMilestones(prev => ({
+                    ...prev,
+                    ...mapped
+                }));
             }
 
             // Check monthly activity bonus
@@ -332,24 +332,37 @@ export function WalletProvider({ children }) {
         }));
 
         if (isSupabaseConfigured() && user) {
-            // Insert transaction
-            await supabase.from('transactions').insert({
-                id: newTx.id,
-                user_id: user.uid,
-                type: newTx.type,
-                amount: newTx.amount,
-                description: newTx.description,
-                category: newTx.category,
-                status: newTx.status,
-                counterparty: newTx.counterparty,
-            });
+            try {
+                // Insert transaction
+                const { error: txErr } = await supabase.from('transactions').insert({
+                    id: newTx.id,
+                    user_id: user.uid,
+                    type: newTx.type,
+                    amount: newTx.amount,
+                    description: newTx.description,
+                    category: newTx.category,
+                    status: newTx.status,
+                    counterparty: newTx.counterparty,
+                });
+                if (txErr) throw txErr;
 
-            // Update milestone
-            await supabase
-                .from('milestones')
-                .update({ completed: true, completed_at: new Date().toISOString() })
-                .eq('user_id', user.uid)
-                .eq('milestone_key', milestoneKey);
+                // Upsert milestone (ensures it creates if not exists)
+                const { error: msErr } = await supabase
+                    .from('milestones')
+                    .upsert({
+                        user_id: user.uid,
+                        milestone_key: milestoneKey,
+                        completed: true,
+                        completed_at: new Date().toISOString(),
+                        credits: milestone.credits,
+                        label: milestone.label
+                    }, { onConflict: 'user_id,milestone_key' });
+
+                if (msErr) throw msErr;
+                console.log(`Milestone ${milestoneKey} persisted successfully`);
+            } catch (err) {
+                console.error('Error persisting milestone:', err);
+            }
         }
     };
 
