@@ -60,12 +60,13 @@ export default function AuthPage() {
     const [displayName, setDisplayName] = useState('');
     const [specialty, setSpecialty] = useState('');
     const [acceptTerms, setAcceptTerms] = useState(false);
-
+    const [success, setSuccess] = useState('');
     const isRegister = mode === 'register';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setSuccess('');
 
         if (isRegister && !acceptTerms) {
             setError('Debes aceptar los términos y condiciones.');
@@ -80,6 +81,10 @@ export default function AuthPage() {
         try {
             if (isRegister) {
                 await register(email, password, displayName, specialty);
+                setSuccess('¡Cuenta creada! Por favor, revisa tu correo electrónico para confirmar tu cuenta antes de iniciar sesión.');
+                // Optionally clear form or switch to login
+                setMode('login');
+                setPassword('');
             } else {
                 await login(email, password);
             }
@@ -193,6 +198,14 @@ export default function AuthPage() {
                     {error && (
                         <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400 animate-slide-up">
                             {error}
+                        </div>
+                    )}
+
+                    {/* Success */}
+                    {success && (
+                        <div className="mb-4 p-4 rounded-xl bg-brand-500/10 border border-brand-500/20 text-sm text-brand-400 animate-slide-up flex items-start gap-3">
+                            <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+                            <p>{success}</p>
                         </div>
                     )}
 
