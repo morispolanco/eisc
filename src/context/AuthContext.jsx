@@ -59,25 +59,35 @@ export function AuthProvider({ children }) {
 
     // Load profile from Supabase
     async function loadProfile(authUser) {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
+        try {
+            console.log('[EISC Auth] Cargando perfil para:', authUser.id);
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', authUser.id)
+                .single();
 
-        const userData = {
-            uid: authUser.id,
-            email: authUser.email,
-            displayName: profile?.display_name || authUser.user_metadata?.display_name || authUser.email.split('@')[0],
-            specialty: profile?.specialty || 'software',
-            photoURL: profile?.photo_url || null,
-            emailVerified: authUser.email_confirmed_at != null,
-            isNewUser: false,
-            createdAt: new Date(authUser.created_at),
-        };
+            if (error && error.code !== 'PGRST116') {
+                console.error('[EISC Auth] Error al cargar perfil:', error.message);
+            }
 
-        setUser(userData);
-        setLoading(false);
+            const userData = {
+                uid: authUser.id,
+                email: authUser.email,
+                displayName: profile?.display_name || authUser.user_metadata?.display_name || authUser.email.split('@')[0],
+                specialty: profile?.specialty || 'software',
+                photoURL: profile?.photo_url || null,
+                emailVerified: authUser.email_confirmed_at != null,
+                isNewUser: false,
+                createdAt: new Date(authUser.created_at),
+            };
+
+            setUser(userData);
+        } catch (err) {
+            console.error('[EISC Auth] Error crítico en loadProfile:', err);
+        } finally {
+            setLoading(false);
+        }
     }
 
     // ── LOGIN ──
