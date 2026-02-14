@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
     Coins, Mail, Lock, User, Eye, EyeOff, ArrowRight,
@@ -87,6 +88,7 @@ export default function AuthPage() {
                 setPassword('');
             } else {
                 await login(email, password);
+                navigate('/');
             }
         } catch (err) {
             setError(err.message || 'Ocurrió un error. Intenta de nuevo.');

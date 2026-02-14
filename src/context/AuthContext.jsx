@@ -211,6 +211,7 @@ export function AuthProvider({ children }) {
         }
         setUser(null);
         sessionStorage.removeItem('eisc_user');
+        window.location.href = '/';
     };
 
     // ── UPDATE PROFILE ──
