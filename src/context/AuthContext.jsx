@@ -34,6 +34,14 @@ export function AuthProvider({ children }) {
             return;
         }
 
+        // Safety timeout — force loading to false if it takes too long
+        const timeout = setTimeout(() => {
+            if (loading) {
+                console.warn('[EISC Auth] Tiempo de espera agotado en inicialización de Supabase');
+                setLoading(false);
+            }
+        }, 5000);
+
         // Get initial session
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session?.user) {
@@ -41,6 +49,9 @@ export function AuthProvider({ children }) {
             } else {
                 setLoading(false);
             }
+        }).catch(err => {
+            console.error('[EISC Auth] Error en getSession:', err);
+            setLoading(false);
         });
 
         // Listen for auth changes
@@ -50,11 +61,15 @@ export function AuthProvider({ children }) {
                     await loadProfile(session.user);
                 } else if (event === 'SIGNED_OUT') {
                     setUser(null);
+                    setLoading(false);
                 }
             }
         );
 
-        return () => subscription.unsubscribe();
+        return () => {
+            clearTimeout(timeout);
+            subscription.unsubscribe();
+        };
     }, []);
 
     // Load profile from Supabase
