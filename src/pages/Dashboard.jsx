@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import {
     Coins, TrendingUp, TrendingDown, Lock, ArrowUpRight, ArrowDownRight,
     CheckCircle2, Clock, Star, Briefcase, Award, ChevronRight, Zap,
-    AlertCircle, ShieldCheck
+    AlertCircle, ShieldCheck, ArrowRight
 } from 'lucide-react';
 
 function StatCard({ icon: Icon, label, value, subtext, color, delay }) {
@@ -161,8 +161,8 @@ export default function Dashboard() {
                             Préstamo de Confianza
                         </h3>
                         <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${balances.isUsingCreditLine
-                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                : 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
+                            ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            : 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
                             }`}>
                             {balances.isUsingCreditLine ? `Deuda: ${balances.debtAmount} cr.` : 'Sin deuda'}
                         </span>
@@ -226,14 +226,14 @@ export default function Dashboard() {
                                 <div className="flex items-center justify-between text-xs mb-1.5">
                                     <span className="text-surface-500">Uso de línea de crédito</span>
                                     <span className={`font-semibold ${balances.creditLineUtilization > 80 ? 'text-red-400' :
-                                            balances.creditLineUtilization > 50 ? 'text-amber-400' : 'text-surface-400'
+                                        balances.creditLineUtilization > 50 ? 'text-amber-400' : 'text-surface-400'
                                         }`}>{Math.round(balances.creditLineUtilization)}%</span>
                                 </div>
                                 <div className="h-2 bg-surface-800 rounded-full overflow-hidden">
                                     <div
                                         className={`h-full rounded-full transition-all duration-700 ${balances.creditLineUtilization > 80 ? 'bg-gradient-to-r from-red-600 to-red-400' :
-                                                balances.creditLineUtilization > 50 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
-                                                    'bg-gradient-to-r from-brand-600 to-brand-400'
+                                            balances.creditLineUtilization > 50 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
+                                                'bg-gradient-to-r from-brand-600 to-brand-400'
                                             }`}
                                         style={{ width: `${balances.creditLineUtilization}%` }}
                                     />
@@ -311,12 +311,81 @@ export default function Dashboard() {
                                     <p className="text-sm font-semibold text-amber-400">{contract.amount} cr.</p>
                                     <p className="text-xs text-surface-600">En escrow</p>
                                 </div>
-                                <ChevronRight className="w-4 h-4 text-surface-600" />
+                                <ArrowRight className="w-4 h-4 text-surface-600" />
                             </div>
                         ))}
                     </div>
                 </div>
             )}
+
+            {/* Dinámicas de Liquidez (Accelerator & Rewards) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-slide-up" style={{ animationDelay: '320ms' }}>
+                {/* Bounties de Escasez */}
+                <div className="glass-card p-5 border-l-4 border-l-amber-500/50 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Zap className="w-12 h-12 text-amber-500" />
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                            <Zap className="w-4 h-4" />
+                        </div>
+                        <h4 className="text-sm font-bold text-white uppercase tracking-wider">Bounties de Escasez</h4>
+                    </div>
+                    <p className="text-xs text-surface-400 mb-4 leading-relaxed">
+                        El mercado necesita <span className="text-white font-medium">Abogados y Diseñadores UI</span>. Sé de los primeros 5 en completar un servicio y gana un bono.
+                    </p>
+                    <div className="flex items-center justify-between mt-auto">
+                        <div className="badge-warning">+2 CE Bono</div>
+                        <button className="text-xs text-amber-400 font-semibold hover:underline flex items-center gap-1">
+                            Ver vacantes <ArrowRight className="w-3 h-3" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Misiones de Comunidad */}
+                <div className="glass-card p-5 border-l-4 border-l-blue-500/50 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <Award className="w-12 h-12 text-blue-500" />
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                            <Award className="w-4 h-4" />
+                        </div>
+                        <h4 className="text-sm font-bold text-white uppercase tracking-wider">Misiones de Comunidad</h4>
+                    </div>
+                    <p className="text-xs text-surface-400 mb-4 leading-relaxed">
+                        Ayuda al ecosistema: actúa como mediador en una disputa o refiere a un profesional talentoso para ganar créditos.
+                    </p>
+                    <div className="flex items-center justify-between mt-auto">
+                        <div className="badge-info">+1 CE Bono</div>
+                        <button className="text-xs text-blue-400 font-semibold hover:underline flex items-center gap-1" onClick={() => window.location.hash = 'misiones'}>
+                            Postularme <ArrowRight className="w-3 h-3" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* El Acelerador */}
+                <div className="glass-card p-5 border-l-4 border-l-brand-500 relative overflow-hidden group bg-gradient-to-br from-brand-500/5 to-transparent">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <TrendingUp className="w-12 h-12 text-brand-500" />
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                        <div className="p-2 rounded-lg bg-brand-500/10 text-brand-400">
+                            <TrendingUp className="w-4 h-4" />
+                        </div>
+                        <h4 className="text-sm font-bold text-white uppercase tracking-wider">El Acelerador</h4>
+                    </div>
+                    <p className="text-xs text-surface-400 mb-4 leading-relaxed">
+                        ¿Necesitas liquidez inmediata sin esperar a trabajar? Inyecta capital fiat y obtén créditos al instante.
+                    </p>
+                    <div className="flex items-center justify-between mt-auto">
+                        <div className="text-xs text-surface-500">1 CE = $10 USD</div>
+                        <button className="px-4 py-1.5 rounded-lg bg-brand-500 text-white text-xs font-bold hover:bg-brand-400 transition-colors shadow-lg shadow-brand-500/20" onClick={() => window.location.href = '/wallet'}>
+                            Comprar CE
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             {/* Recent Transactions */}
             <div className="glass-card p-6 animate-slide-up" style={{ animationDelay: '350ms' }}>

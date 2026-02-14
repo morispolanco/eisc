@@ -48,6 +48,26 @@ export default function Disputes() {
                 )}
             </div>
 
+            {/* Misión de Comunidad: Mediador */}
+            {!showForm && (
+                <div className="glass-card p-4 border-l-4 border-l-blue-500 bg-blue-500/5 flex flex-col sm:flex-row items-center justify-between gap-4 animate-slide-up">
+                    <div className="flex items-start gap-4">
+                        <div className="p-3 rounded-xl bg-blue-500/10 text-blue-400 shrink-0">
+                            <CheckCircle2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Misión de Comunidad: Sé Mediador</h3>
+                            <p className="text-xs text-surface-400 mt-1 leading-relaxed">
+                                Gana <span className="text-blue-400 font-semibold">+1 CE</span> por cada disputa que ayudes a resolver de forma justa. Inyecta imparcialidad y ayuda a mantener sano el ecosistema.
+                            </p>
+                        </div>
+                    </div>
+                    <button className="px-5 py-2 rounded-xl bg-blue-500 text-white text-xs font-bold hover:bg-blue-400 transition-all shrink-0">
+                        Postularme como Mediador
+                    </button>
+                </div>
+            )}
+
             {/* Dispute Form */}
             {showForm && (
                 <div className="glass-card p-6 animate-slide-up">

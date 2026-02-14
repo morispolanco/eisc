@@ -22,6 +22,9 @@ const DEMO_MILESTONES = {
     portfolio: { completed: true, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
     identity: { completed: true, credits: 2, label: 'Hito de Verificación — Recomendación de miembro' },
     first_sale: { completed: true, credits: 3, label: 'Primera venta — Completaste tu primer servicio' },
+    bounty_bonus: { completed: false, credits: 2, label: 'Bounty de Escasez — Profesión en alta demanda' },
+    referral_bonus: { completed: false, credits: 1, label: 'Misión de Comunidad — Referido exitoso' },
+    mediation_bonus: { completed: false, credits: 1, label: 'Misión de Comunidad — Mediación de disputa' },
 };
 
 const NEW_USER_MILESTONES = {
@@ -29,6 +32,9 @@ const NEW_USER_MILESTONES = {
     portfolio: { completed: false, credits: 2, label: 'Hito de Talento — Portafolio o redes profesionales' },
     identity: { completed: false, credits: 2, label: 'Hito de Verificación — Recomendación de miembro' },
     first_sale: { completed: false, credits: 3, label: 'Primera venta — Completaste tu primer servicio' },
+    bounty_bonus: { completed: false, credits: 2, label: 'Bounty de Escasez — Profesión en alta demanda' },
+    referral_bonus: { completed: false, credits: 1, label: 'Misión de Comunidad — Referido exitoso' },
+    mediation_bonus: { completed: false, credits: 1, label: 'Misión de Comunidad — Mediación de disputa' },
 };
 
 const MONTHLY_BONUS_AMOUNT = 1;
@@ -463,6 +469,37 @@ export function WalletProvider({ children }) {
         }
     };
 
+    // ── Buy credits (The Accelerator) ──
+    const buyCredits = async (amount) => {
+        const newTx = {
+            id: `tx-fiat-${Date.now()}`,
+            type: 'credit',
+            amount,
+            description: 'El Acelerador — Compra de liquidez inmediata',
+            category: 'fiat_purchase',
+            status: 'completed',
+            date: new Date(),
+            counterparty: 'Pasarela Stripe',
+        };
+
+        setTransactions(prev => [newTx, ...prev]);
+
+        if (isSupabaseConfigured() && user) {
+            await supabase.from('transactions').insert({
+                id: newTx.id,
+                user_id: user.uid,
+                type: newTx.type,
+                amount: newTx.amount,
+                description: newTx.description,
+                category: newTx.category,
+                status: newTx.status,
+                counterparty: newTx.counterparty,
+            });
+        }
+
+        return { success: true, transactionId: newTx.id };
+    };
+
     return (
         <WalletContext.Provider value={{
             transactions,
@@ -473,6 +510,7 @@ export function WalletProvider({ children }) {
             releaseEscrow,
             receivePayment,
             completeMilestone,
+            buyCredits,
             CREDIT_VALUE_USD,
             MIN_CREDIT_LINE,
             MONTHLY_BONUS_AMOUNT,

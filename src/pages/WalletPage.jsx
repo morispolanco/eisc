@@ -74,10 +74,20 @@ function TransactionRow({ tx, CREDIT_VALUE_USD }) {
 }
 
 export default function WalletPage() {
-    const { transactions, balances, CREDIT_VALUE_USD, MIN_CREDIT_LINE } = useWallet();
+    const { transactions, balances, CREDIT_VALUE_USD, MIN_CREDIT_LINE, buyCredits } = useWallet();
     const [typeFilter, setTypeFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [isBuying, setIsBuying] = useState(false);
+
+    const handleBuyCredits = async (amount) => {
+        setIsBuying(true);
+        // Simulate API call/Stripe checkout
+        await new Promise(r => setTimeout(r, 1500));
+        await buyCredits(amount);
+        setIsBuying(false);
+        alert(`¡Éxito! Has adquirido ${amount} créditos.`);
+    };
 
     const filteredTx = useMemo(() => {
         return [...transactions]
@@ -97,12 +107,36 @@ export default function WalletPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <WalletIcon className="w-6 h-6 text-brand-400" />
-                    Wallet — Libro Contable
-                </h1>
-                <p className="text-surface-500 mt-1">Historial completo de créditos: entradas, salidas y retenciones</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                        <WalletIcon className="w-6 h-6 text-brand-400" />
+                        Wallet — Libro Contable
+                    </h1>
+                    <p className="text-surface-500 mt-1">Historial completo de créditos: entradas, salidas y retenciones</p>
+                </div>
+
+                {/* El Acelerador — Quick Buy */}
+                <div className="glass-card p-4 border-l-4 border-l-brand-500 bg-brand-500/5 flex flex-col sm:flex-row items-center gap-4">
+                    <div>
+                        <p className="text-xs font-bold text-brand-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <TrendingUp className="w-3.5 h-3.5" /> El Acelerador
+                        </p>
+                        <p className="text-[10px] text-surface-500 mt-0.5">Inyectar liquidez inmediata (FIAT)</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {[5, 10, 25].map(amount => (
+                            <button
+                                key={amount}
+                                onClick={() => handleBuyCredits(amount)}
+                                disabled={isBuying}
+                                className="px-3 py-1.5 rounded-lg bg-surface-800 border border-surface-700 text-xs font-bold text-white hover:bg-surface-700 hover:border-brand-500/50 transition-all disabled:opacity-50"
+                            >
+                                +{amount} <span className="text-[10px] text-surface-500 font-normal">(${(amount * CREDIT_VALUE_USD)})</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* Summary Cards */}
@@ -166,10 +200,10 @@ export default function WalletPage() {
                             </div>
                         </div>
                         <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${balances.isUsingCreditLine
-                                ? balances.creditLineUtilization > 80
-                                    ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                : 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
+                            ? balances.creditLineUtilization > 80
+                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
                             }`}>
                             {balances.isUsingCreditLine ? `Deuda: ${balances.debtAmount} cr.` : 'Sin deuda'}
                         </span>
@@ -233,14 +267,14 @@ export default function WalletPage() {
                             <div className="flex items-center justify-between text-xs mb-1.5">
                                 <span className="text-surface-500">Uso de línea de crédito</span>
                                 <span className={`font-semibold ${balances.creditLineUtilization > 80 ? 'text-red-400' :
-                                        balances.creditLineUtilization > 50 ? 'text-amber-400' : 'text-brand-400'
+                                    balances.creditLineUtilization > 50 ? 'text-amber-400' : 'text-brand-400'
                                     }`}>{Math.round(balances.creditLineUtilization)}%</span>
                             </div>
                             <div className="h-2 bg-surface-800 rounded-full overflow-hidden">
                                 <div
                                     className={`h-full rounded-full transition-all duration-700 ${balances.creditLineUtilization > 80 ? 'bg-gradient-to-r from-red-600 to-red-400' :
-                                            balances.creditLineUtilization > 50 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
-                                                'bg-gradient-to-r from-brand-600 to-brand-400'
+                                        balances.creditLineUtilization > 50 ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
+                                            'bg-gradient-to-r from-brand-600 to-brand-400'
                                         }`}
                                     style={{ width: `${balances.creditLineUtilization}%` }}
                                 />
